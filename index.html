@@ -370,7 +370,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.65</div>
+      <div class="app-pill">Session Registration &middot; v0.66</div>
     </div>
   </div>
 
@@ -406,10 +406,6 @@
     </div>
     <div style="text-align:center;margin-top:8px">
       <button class="spm-btn spm-btn-secondary" onclick="signOut()" style="font-size:0.85rem;padding:8px 16px">Sign Out</button>
-    </div>
-    <!-- TEST: remove before go-live -->
-    <div style="text-align:center;margin-top:16px">
-      <button onclick="localStorage.removeItem('teamreg_hintSeen');alert('Hint reset!')" style="font-size:0.7rem;padding:4px 10px;border:1px dashed #ccc;border-radius:8px;background:none;color:#aaa;cursor:pointer">Reset Hint</button>
     </div>
   </div>
 
@@ -537,7 +533,7 @@ loadDivisions();
 
 // Sign out: clear saved login and return to auth screen
 function signOut() {
-  try { localStorage.removeItem('teamreg_lastLogin'); } catch (e) {}
+  try { localStorage.removeItem('teamreg_lastLogin'); localStorage.removeItem('teamreg_hintSeen'); } catch (e) {}
   currentPlayer = null;
   document.getElementById('authInput').value = '';
   closeAuthAC();

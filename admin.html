@@ -149,7 +149,10 @@
   <!-- ═══ Tab: Divisions ═══ -->
   <div id="tabDivisions" class="hidden">
     <div class="spm-card">
-      <h3 style="margin:0 0 12px">Manage Divisions</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <h3 style="margin:0">Manage Divisions</h3>
+        <button class="spm-btn spm-btn-secondary" onclick="syncToDb()" style="font-size:0.75rem;padding:4px 12px">Sync from Browser</button>
+      </div>
       <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px">A division is a specific format + day + time + area combination that teams can register for.</p>
 
       <!-- Add division form -->
@@ -670,178 +673,179 @@ function switchTab(tab) {
   }
 }
 
-// ════════════════════════════════════════════════════════════════════
-// Areas Management (localStorage — DB tables later)
-// ════════════════════════════════════════════════════════════════════
-var areas = JSON.parse(localStorage.getItem('spm_areas') || '[]');
+// ================================================================
+// Areas Management (Supabase)
+// ================================================================
+var areas = [];
 
-function saveAreas() {
-  localStorage.setItem('spm_areas', JSON.stringify(areas));
+async function loadAreas() {
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/areas?order=name', { headers: sbHeaders(false) });
+    if (resp.ok) areas = await resp.json();
+  } catch (e) {}
   renderAreas();
-  renderAreaDropdown();
+  renderAreaCheckboxes();
 }
 
-function addArea() {
+async function addArea() {
   var input = document.getElementById('areaName');
   var name = input.value.trim();
   if (!name) return;
-  if (areas.indexOf(name) !== -1) { setStatus('Area already exists.', 'error'); return; }
-  areas.push(name);
-  areas.sort();
+  var resp = await fetch(SUPABASE_URL + '/rest/v1/areas', {
+    method: 'POST', headers: sbHeadersReturn(true),
+    body: JSON.stringify({ name: name })
+  });
+  if (!resp.ok) { setStatus('Error adding area. May already exist.', 'error'); return; }
   input.value = '';
-  saveAreas();
+  await loadAreas();
+  setStatus('Area added.', 'success');
 }
 
-function removeArea(idx) {
-  areas.splice(idx, 1);
-  saveAreas();
+async function removeArea(id) {
+  await fetch(SUPABASE_URL + '/rest/v1/areas?id=eq.' + id, { method: 'DELETE', headers: sbHeaders(true) });
+  await loadAreas();
 }
 
 function renderAreas() {
   var html = '';
   for (var i = 0; i < areas.length; i++) {
-    html += '<div class="list-item"><span>' + esc(areas[i]) + '</span>';
-    html += '<button class="remove-link" onclick="removeArea(' + i + ')">remove</button></div>';
+    html += '<div class="list-item"><span>' + esc(areas[i].name) + '</span>';
+    html += '<button class="remove-link" onclick="removeArea(' + areas[i].id + ')">remove</button></div>';
   }
   if (areas.length === 0) html = '<div style="color:var(--muted);padding:16px;text-align:center">No areas defined yet.</div>';
   document.getElementById('areasList').innerHTML = html;
 }
 
-function renderAreaDropdown() {
+function renderAreaCheckboxes() {
   var container = document.getElementById('divAreaCheckboxes');
   if (!container) return;
-  if (areas.length === 0) {
-    container.innerHTML = '<span style="color:var(--muted);font-size:0.8rem">Add areas first</span>';
-    return;
-  }
+  if (areas.length === 0) { container.innerHTML = '<span style="color:var(--muted);font-size:0.8rem">Add areas first</span>'; return; }
   var html = '';
   for (var i = 0; i < areas.length; i++) {
     html += '<label style="display:flex;align-items:center;gap:6px;padding:2px 0;font-size:0.85rem;cursor:pointer">';
-    html += '<input type="checkbox" value="' + esc(areas[i]) + '" class="div-area-cb" style="min-width:16px;min-height:16px">';
-    html += esc(areas[i]) + '</label>';
+    html += '<input type="checkbox" value="' + areas[i].id + '" class="div-area-cb" style="min-width:16px;min-height:16px">';
+    html += esc(areas[i].name) + '</label>';
   }
   container.innerHTML = html;
 }
 
-// ════════════════════════════════════════════════════════════════════
-// Divisions Management (localStorage — DB tables later)
-// ════════════════════════════════════════════════════════════════════
-var divisions = JSON.parse(localStorage.getItem('spm_divisions') || '[]');
+// ================================================================
+// Divisions Management (Supabase)
+// ================================================================
+var divisions = [];
 
-function saveDivisions() {
-  localStorage.setItem('spm_divisions', JSON.stringify(divisions));
+async function loadDivisions() {
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/division_full?order=day,format', { headers: sbHeaders(false) });
+    if (resp.ok) divisions = await resp.json();
+  } catch (e) {}
   renderDivisions();
 }
 
-function addDivision() {
+async function addDivision() {
   var format = document.getElementById('divFormat').value;
   var day = document.getElementById('divDay').value;
   var time = document.getElementById('divTime').value.trim();
   if (!time) { setStatus('Time is required.', 'error'); return; }
-
-  // Get checked areas
   var cbs = document.querySelectorAll('.div-area-cb:checked');
   if (cbs.length === 0) { setStatus('Select at least one area.', 'error'); return; }
 
-  var selectedAreas = [];
-  for (var i = 0; i < cbs.length; i++) selectedAreas.push(cbs[i].value);
-
-  // Check duplicate (same format + day)
-  var areasKey = selectedAreas.slice().sort().join('|');
-  var dup = divisions.some(function(d) {
-    var dAreas = (d.areas || [d.area || '']).slice().sort().join('|');
-    return d.format === format && d.day === day && d.time === time && dAreas === areasKey;
+  var resp = await fetch(SUPABASE_URL + '/rest/v1/divisions', {
+    method: 'POST', headers: sbHeadersReturn(true),
+    body: JSON.stringify({ format: format, day: day, time: time })
   });
-  if (dup) { setStatus('This exact division already exists.', 'error'); return; }
+  if (!resp.ok) { setStatus('Error creating division.', 'error'); return; }
+  var newDiv = await resp.json();
+  var divId = newDiv[0].id;
 
-  divisions.push({ format: format, day: day, time: time, areas: selectedAreas });
-  divisions.sort(function(a, b) {
-    var days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-    var d = days.indexOf(a.day) - days.indexOf(b.day);
-    if (d !== 0) return d;
-    return a.format.localeCompare(b.format);
+  var links = [];
+  for (var i = 0; i < cbs.length; i++) {
+    links.push({ division_id: divId, area_id: parseInt(cbs[i].value, 10) });
+  }
+  await fetch(SUPABASE_URL + '/rest/v1/division_areas', {
+    method: 'POST', headers: sbHeaders(true),
+    body: JSON.stringify(links)
   });
 
-  // Uncheck all
   var allCbs = document.querySelectorAll('.div-area-cb');
   for (var j = 0; j < allCbs.length; j++) allCbs[j].checked = false;
-
-  saveDivisions();
+  await loadDivisions();
   setStatus('Division added.', 'success');
 }
 
-function removeDivision(idx) {
-  divisions.splice(idx, 1);
-  saveDivisions();
+async function removeDivision(id) {
+  await fetch(SUPABASE_URL + '/rest/v1/divisions?id=eq.' + id, { method: 'DELETE', headers: sbHeaders(true) });
+  await loadDivisions();
 }
 
 function renderDivisions() {
   var html = '';
   for (var i = 0; i < divisions.length; i++) {
     var d = divisions[i];
-    // Support both old format (d.area string) and new format (d.areas array)
-    var areaText = d.areas ? d.areas.join(', ') : (d.area || '');
     html += '<div class="list-item">';
     html += '<div><strong>' + esc(d.format) + '</strong> &middot; ' + esc(d.day) + ' ' + esc(d.time);
-    html += '<div style="font-size:0.8rem;color:var(--muted)">' + esc(areaText) + '</div></div>';
-    html += '<button class="remove-link" onclick="removeDivision(' + i + ')">remove</button>';
+    html += '<div style="font-size:0.8rem;color:var(--muted)">' + esc(d.areas || '') + '</div></div>';
+    html += '<button class="remove-link" onclick="removeDivision(' + d.id + ')">remove</button>';
     html += '</div>';
   }
   if (divisions.length === 0) html = '<div style="color:var(--muted);padding:16px;text-align:center">No divisions defined yet.</div>';
   document.getElementById('divisionsList').innerHTML = html;
 }
 
-// ════════════════════════════════════════════════════════════════════
-// Export Player Data to CSV
-// ════════════════════════════════════════════════════════════════════
-async function exportPlayers() {
-  setStatus('Exporting...', '');
-  try {
-    var allData = [];
-    var page = 0;
-    var pageSize = 1000;
-    while (true) {
-      var resp = await fetch(SUPABASE_URL + '/rest/v1/player_full?order=member_number&offset=' + (page * pageSize) + '&limit=' + pageSize, {
-        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
-      });
-      if (!resp.ok) throw new Error('Server error');
-      var batch = await resp.json();
-      if (batch.length === 0) break;
-      allData = allData.concat(batch);
-      page++;
-    }
+// Sync localStorage to Supabase (one-time migration)
+async function syncToDb() {
+  setStatus('Syncing to database...', '');
+  var lsAreas = JSON.parse(localStorage.getItem('spm_areas') || '[]');
+  var lsDivs = JSON.parse(localStorage.getItem('spm_divisions') || '[]');
+  var count = 0;
 
-    if (allData.length === 0) { setStatus('No data to export.', 'error'); return; }
-
-    var cols = Object.keys(allData[0]);
-    var rows = [cols.join(',')];
-    for (var i = 0; i < allData.length; i++) {
-      var row = cols.map(function(c) {
-        var v = String(allData[i][c] == null ? '' : allData[i][c]);
-        if (v.indexOf(',') !== -1 || v.indexOf('"') !== -1 || v.indexOf('\n') !== -1) {
-          return '"' + v.replace(/"/g, '""') + '"';
-        }
-        return v;
-      });
-      rows.push(row.join(','));
-    }
-
-    var csv = rows.join('\n');
-    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    var link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = 'player-data.csv';
-    link.click();
-    setStatus('Exported ' + allData.length + ' players.', 'success');
-  } catch (e) {
-    setStatus('Export error: ' + e.message, 'error');
+  for (var a = 0; a < lsAreas.length; a++) {
+    var aName = typeof lsAreas[a] === 'string' ? lsAreas[a] : lsAreas[a].name;
+    if (!aName) continue;
+    await fetch(SUPABASE_URL + '/rest/v1/areas', {
+      method: 'POST', headers: Object.assign(sbHeaders(true), { 'Prefer': 'resolution=merge-duplicates' }),
+      body: JSON.stringify({ name: aName })
+    });
+    count++;
   }
+
+  await loadAreas();
+  var areaMap = {};
+  for (var ai = 0; ai < areas.length; ai++) areaMap[areas[ai].name] = areas[ai].id;
+
+  for (var d = 0; d < lsDivs.length; d++) {
+    var div = lsDivs[d];
+    var dResp = await fetch(SUPABASE_URL + '/rest/v1/divisions', {
+      method: 'POST', headers: sbHeadersReturn(true),
+      body: JSON.stringify({ format: div.format, day: div.day, time: div.time })
+    });
+    if (!dResp.ok) continue;
+    var nd = await dResp.json();
+    var dId = nd[0].id;
+
+    var dAreas = div.areas || (div.area ? [div.area] : []);
+    var lnks = [];
+    for (var da = 0; da < dAreas.length; da++) {
+      var aId = areaMap[dAreas[da]];
+      if (aId) lnks.push({ division_id: dId, area_id: aId });
+    }
+    if (lnks.length > 0) {
+      await fetch(SUPABASE_URL + '/rest/v1/division_areas', {
+        method: 'POST', headers: sbHeaders(true),
+        body: JSON.stringify(lnks)
+      });
+    }
+    count++;
+  }
+
+  await loadDivisions();
+  setStatus('Synced ' + count + ' items to database.', 'success');
 }
 
 // Init
-renderAreas();
-renderDivisions();
-renderAreaDropdown();
+loadAreas();
+loadDivisions();
+
 </script>
 </body>
 </html>

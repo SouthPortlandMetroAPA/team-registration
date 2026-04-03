@@ -75,7 +75,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Player Data Management &middot; v0.5</div>
+      <div class="app-pill">Player Data Management &middot; v0.6</div>
     </div>
   </div>
 
@@ -388,10 +388,13 @@ async function executeImport() {
       }
     }
 
-    // Step 3: Auto-lookup counties for zips that don't have one yet
-    updateProgress(95, 'Looking up counties by zip...');
-    await tick();
-    var countyCount = await lookupCounties();
+    // Step 3: Auto-lookup counties — only if this import had address data
+    var countyCount = 0;
+    if (tableBatches['player_address']) {
+      updateProgress(95, 'Looking up counties by zip...');
+      await tick();
+      countyCount = await lookupCounties();
+    }
 
     updateProgress(100, 'Complete!');
     await tick();
@@ -401,6 +404,12 @@ async function executeImport() {
     if (countyCount > 0) msg += ' Resolved ' + countyCount + ' counties.';
     setStatus(msg, 'success');
     loadStats();
+
+    // Clear the input and preview after successful import
+    document.getElementById('importData').value = '';
+    document.getElementById('previewArea').innerHTML = '';
+    parsedRows = [];
+    parsedHeaders = [];
   } catch (e) {
     hideProgress();
     setStatus('Network error: ' + e.message, 'error');

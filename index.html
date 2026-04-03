@@ -370,7 +370,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.79</div>
+      <div class="app-pill">Session Registration &middot; v0.80</div>
     </div>
   </div>
 
@@ -478,7 +478,7 @@
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase `apps` table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.79';
+var APP_VERSION = '0.80';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -1154,7 +1154,7 @@ function renderRegForm() {
     if (full) {
       html += '<input type="text" id="addPlayerInput" value="Max players added" readonly style="opacity:0.5;text-align:center;font-style:italic">';
     } else {
-      html += '<input type="text" id="addPlayerInput" placeholder="Search" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">';
+      html += '<input type="text" id="addPlayerInput" placeholder="Add player by name or APA #" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">';
       html += '<button class="spm-btn spm-btn-primary" onclick="addPlayer()">Add</button>';
     }
     html += '<div class="ac-dropdown" id="acDropdown"></div>';
@@ -1187,7 +1187,7 @@ function renderDJRoster() {
   if (djFull) {
     html += '<input type="text" id="addPlayerInput" value="Max players added" readonly style="opacity:0.5;text-align:center;font-style:italic">';
   } else {
-    html += '<input type="text" id="addPlayerInput" placeholder="Search" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">';
+    html += '<input type="text" id="addPlayerInput" placeholder="Add player by name or APA #" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">';
   }
   html += '<div class="ac-dropdown" id="acDropdown"></div>';
   html += '</div>';
@@ -1282,7 +1282,7 @@ function renderMobileBallCol(idx, col, onRoster, role) {
 function renderSideControls(idx, col, onRoster, role) {
   var html = '';
   if (onRoster) {
-    html += '<button class="rp-btn on-roster" onclick="toggleRoster(' + idx + ',\'' + col + '\')">On Roster</button>';
+    html += '<button class="rp-btn on-roster" onclick="toggleRoster(' + idx + ',\'' + col + '\')">Remove</button>';
     html += '<button class="rp-btn' + (role === 'Captain' ? ' active-c' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Captain\')">Captain</button>';
     html += '<button class="rp-btn' + (role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Co-Captain\')">Co-Captain</button>';
   } else {

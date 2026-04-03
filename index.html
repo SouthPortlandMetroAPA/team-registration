@@ -370,7 +370,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.78</div>
+      <div class="app-pill">Session Registration &middot; v0.79</div>
     </div>
   </div>
 
@@ -478,7 +478,7 @@
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase `apps` table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.78';
+var APP_VERSION = '0.79';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -861,22 +861,19 @@ function renderBrowseContent() {
     var divs = byDay[day];
     for (var dj = 0; dj < divs.length; dj++) {
       var div = divs[dj];
+      var biweeklyTag = div.is_biweekly ? ' <span style="background:#e0e0ff;color:#4a4a9a;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600">biweekly</span>' : '';
       if (isAll) {
         // 3-column: format | areas | time
         html += '<div class="div-card three-col">';
         html += '<div class="div-card-format">' + esc(div.format) + '</div>';
         html += '<div class="div-card-areas">' + esc(div.areas || '') + '</div>';
-        html += '<div class="div-card-time">' + esc(div.time);
-        if (div.is_biweekly) html += ' <span style="background:#e0e0ff;color:#4a4a9a;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600">biweekly</span>';
-        html += '</div>';
+        html += '<div class="div-card-time">' + esc(div.time) + biweeklyTag + '</div>';
         html += '</div>';
       } else {
-        // Single format: two columns — areas | time
-        html += '<div class="div-card" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center">';
+        // Single format: same style, 2-column (areas | time) — no format column needed
+        html += '<div class="div-card three-col" style="grid-template-columns:1fr auto">';
         html += '<div class="div-card-areas">' + esc(div.areas || '') + '</div>';
-        html += '<div class="div-card-time">' + esc(div.time);
-        if (div.is_biweekly) html += ' <span style="background:#e0e0ff;color:#4a4a9a;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600">biweekly</span>';
-        html += '</div>';
+        html += '<div class="div-card-time">' + esc(div.time) + biweeklyTag + '</div>';
         html += '</div>';
       }
     }

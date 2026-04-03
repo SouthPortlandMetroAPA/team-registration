@@ -194,7 +194,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.12</div>
+      <div class="app-pill">Session Registration &middot; v0.13</div>
     </div>
   </div>
 
@@ -626,6 +626,7 @@ function selectACItem(idx) {
   }
 
   roster.push(entry);
+  autoAssignRoles();
   document.getElementById('addPlayerInput').value = '';
   renderRegForm();
 }
@@ -697,6 +698,7 @@ async function addPlayer() {
     }
 
     roster.push(entry);
+    autoAssignRoles();
     input.value = '';
     renderRegForm();
   } catch (e) {
@@ -707,6 +709,7 @@ async function addPlayer() {
 
 function removePlayer(idx) {
   roster.splice(idx, 1);
+  autoAssignRoles();
   renderRegForm();
 }
 
@@ -730,25 +733,73 @@ function toggleRoster(idx, col) {
     showToast('Max ' + MAX_ROSTER + ' players per roster.', 'warn');
   }
 
+  autoAssignRoles();
   renderRegForm();
+}
+
+// Auto-assign Captain to 1st player, Co-Captain to 2nd when roles are missing.
+// Called after every add/remove to ensure captain+co-captain always assigned.
+function autoAssignRoles() {
+  if (isDJ) {
+    autoAssignDJCol('role8', 'onRoster8');
+    autoAssignDJCol('role9', 'onRoster9');
+  } else {
+    var hasCaptain = roster.some(function(r) { return r.role === 'Captain'; });
+    var hasCoCaptain = roster.some(function(r) { return r.role === 'Co-Captain'; });
+    if (!hasCaptain && roster.length >= 1) roster[0].role = 'Captain';
+    if (!hasCoCaptain && roster.length >= 2) {
+      // Find first player that isn't captain
+      for (var i = 0; i < roster.length; i++) {
+        if (roster[i].role !== 'Captain') { roster[i].role = 'Co-Captain'; break; }
+      }
+    }
+  }
+}
+
+function autoAssignDJCol(roleKey, rosterKey) {
+  var onRoster = roster.filter(function(r) { return r[rosterKey]; });
+  var hasCaptain = onRoster.some(function(r) { return r[roleKey] === 'Captain'; });
+  var hasCoCaptain = onRoster.some(function(r) { return r[roleKey] === 'Co-Captain'; });
+  if (!hasCaptain && onRoster.length >= 1) onRoster[0][roleKey] = 'Captain';
+  if (!hasCoCaptain && onRoster.length >= 2) {
+    for (var i = 0; i < onRoster.length; i++) {
+      if (onRoster[i][roleKey] !== 'Captain') { onRoster[i][roleKey] = 'Co-Captain'; break; }
+    }
+  }
 }
 
 function setDJRole(idx, col, role) {
   var key = col === '8' ? 'role8' : 'role9';
-  // Toggle off if clicking same role
-  if (roster[idx][key] === role) { roster[idx][key] = 'Player'; renderRegForm(); return; }
-  // Clear this role from others
+  var currentRole = roster[idx][key];
+  var otherRole = (role === 'Captain') ? 'Co-Captain' : 'Captain';
+
+  // If clicking the role they already have, do nothing (can't unassign)
+  if (currentRole === role) { renderRegForm(); return; }
+
+  // Find who currently has this role and swap
   for (var i = 0; i < roster.length; i++) {
-    if (roster[i][key] === role) roster[i][key] = 'Player';
+    if (roster[i][key] === role) {
+      // Swap: give them the role the clicked player had
+      roster[i][key] = (currentRole === 'Captain' || currentRole === 'Co-Captain') ? currentRole : otherRole;
+      break;
+    }
   }
   roster[idx][key] = role;
   renderRegForm();
 }
 
 function setSingleRole(idx, role) {
-  if (roster[idx].role === role) { roster[idx].role = 'Player'; renderRegForm(); return; }
+  var currentRole = roster[idx].role;
+  var otherRole = (role === 'Captain') ? 'Co-Captain' : 'Captain';
+
+  if (currentRole === role) { renderRegForm(); return; }
+
+  // Swap with whoever has this role
   for (var i = 0; i < roster.length; i++) {
-    if (roster[i].role === role) roster[i].role = 'Player';
+    if (roster[i].role === role) {
+      roster[i].role = (currentRole === 'Captain' || currentRole === 'Co-Captain') ? currentRole : otherRole;
+      break;
+    }
   }
   roster[idx].role = role;
   renderRegForm();

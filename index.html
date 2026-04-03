@@ -109,12 +109,11 @@
 
     /* ── Autocomplete Dropdown ────────────────────────────────────── */
     .ac-dropdown {
-      position: absolute; top: 100%; left: 0; right: 0;
-      background: #fff; border: 2px solid var(--spm-accent); border-top: none;
-      border-radius: 0 0 12px 12px; max-height: 240px; overflow-y: auto;
-      z-index: 100; box-shadow: 0 6px 16px rgba(0,0,0,0.15); display: none;
+      position: fixed; width: 320px; max-width: 90vw;
+      background: #fff; border: 2px solid var(--spm-accent);
+      border-radius: 12px; max-height: 300px; overflow-y: auto;
+      z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.2); display: none;
     }
-    .add-row .ac-dropdown { right: 60px; /* leave room for Add btn */ }
     .ac-dropdown.open { display: block; }
     .ac-item {
       padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f0f0f0;
@@ -194,7 +193,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.15</div>
+      <div class="app-pill">Session Registration &middot; v0.16</div>
     </div>
   </div>
 
@@ -202,7 +201,7 @@
   <div id="screenAuth">
     <form class="lookup-bar" autocomplete="off" onsubmit="event.preventDefault();doLookup()" style="position:relative">
       <input class="lookup-input" id="authInput" type="text" placeholder="APA # or Name or Email" aria-label="APA number, name, or email" inputmode="text" oninput="onAuthSearchInput()" onkeydown="onAuthSearchKeydown(event)">
-      <div class="ac-dropdown" id="authACDropdown" style="left:16px;right:16px"></div>
+      <div class="ac-dropdown" id="authACDropdown"></div>
       <button class="lookup-btn" type="submit">FIND ME</button>
     </form>
     <div class="auth-error" id="authError"></div>
@@ -395,6 +394,7 @@ function renderAuthACDropdown() {
     html += '</div>';
   }
   dd.innerHTML = html;
+  positionDropdown('authACDropdown', 'authInput');
   dd.classList.add('open');
 }
 
@@ -662,10 +662,19 @@ async function doACSearch(query) {
   } catch (e) { /* silent */ }
 }
 
+function positionDropdown(ddId, inputId) {
+  var dd = document.getElementById(ddId);
+  var input = document.getElementById(inputId);
+  if (!dd || !input) return;
+  var rect = input.getBoundingClientRect();
+  dd.style.top = (rect.bottom + 2) + 'px';
+  dd.style.left = rect.left + 'px';
+  dd.style.width = rect.width + 'px';
+}
+
 function renderACDropdown() {
   var dd = document.getElementById('acDropdown');
   if (!dd) return;
-  // Don't show if input is now empty (user already submitted)
   var input = document.getElementById('addPlayerInput');
   if (!input || !input.value.trim()) { closeAC(); return; }
   if (acResults.length === 0) { closeAC(); return; }
@@ -683,19 +692,22 @@ function renderACDropdown() {
   }
 
   dd.innerHTML = html;
+  positionDropdown('acDropdown', 'addPlayerInput');
   dd.classList.add('open');
 }
 
 function renderACHighlight() {
-  var items = document.querySelectorAll('.ac-item');
+  var items = document.querySelectorAll('#acDropdown .ac-item');
   for (var i = 0; i < items.length; i++) {
     items[i].classList.toggle('focused', i === acFocused);
+    if (i === acFocused) items[i].scrollIntoView({ block: 'nearest' });
   }
 }
 
 function selectACItem(idx) {
   var p = acResults[idx];
-  if (!p) return;
+  if (!p) { console.log('selectACItem: no result at idx', idx); return; }
+  console.log('selectACItem: idx=' + idx + ' member=' + p.member_number + ' name=' + p.first_name + ' ' + p.last_name);
   closeAC();
 
   var apa = p.member_number;

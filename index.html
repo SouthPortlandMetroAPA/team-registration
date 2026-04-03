@@ -193,7 +193,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.16</div>
+      <div class="app-pill">Session Registration &middot; v0.17</div>
     </div>
   </div>
 
@@ -878,19 +878,20 @@ function autoAssignDJCol(roleKey, rosterKey) {
   }
 }
 
+// Role swap logic: the clicked player gets the role, whoever had it
+// gets whatever the clicked player had before.
+// Captain on Co-Captain → swap. Captain on regular → old Captain becomes regular.
 function setDJRole(idx, col, role) {
   var key = col === '8' ? 'role8' : 'role9';
-  var currentRole = roster[idx][key];
-  var otherRole = (role === 'Captain') ? 'Co-Captain' : 'Captain';
+  var rosterKey = col === '8' ? 'onRoster8' : 'onRoster9';
+  if (roster[idx][key] === role) return; // already has it
 
-  // If clicking the role they already have, do nothing (can't unassign)
-  if (currentRole === role) { renderRegForm(); return; }
+  var clickedPrevRole = roster[idx][key]; // what clicked player had before
 
-  // Find who currently has this role and swap
+  // Find who currently has the target role (among on-roster players)
   for (var i = 0; i < roster.length; i++) {
-    if (roster[i][key] === role) {
-      // Swap: give them the role the clicked player had
-      roster[i][key] = (currentRole === 'Captain' || currentRole === 'Co-Captain') ? currentRole : otherRole;
+    if (i !== idx && roster[i][rosterKey] && roster[i][key] === role) {
+      roster[i][key] = clickedPrevRole; // give them clicked player's old role
       break;
     }
   }
@@ -899,15 +900,13 @@ function setDJRole(idx, col, role) {
 }
 
 function setSingleRole(idx, role) {
-  var currentRole = roster[idx].role;
-  var otherRole = (role === 'Captain') ? 'Co-Captain' : 'Captain';
+  if (roster[idx].role === role) return; // already has it
 
-  if (currentRole === role) { renderRegForm(); return; }
+  var clickedPrevRole = roster[idx].role;
 
-  // Swap with whoever has this role
   for (var i = 0; i < roster.length; i++) {
-    if (roster[i].role === role) {
-      roster[i].role = (currentRole === 'Captain' || currentRole === 'Co-Captain') ? currentRole : otherRole;
+    if (i !== idx && roster[i].role === role) {
+      roster[i].role = clickedPrevRole;
       break;
     }
   }

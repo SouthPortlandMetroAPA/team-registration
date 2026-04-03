@@ -297,7 +297,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.42</div>
+      <div class="app-pill">Session Registration &middot; v0.43</div>
     </div>
   </div>
 
@@ -714,14 +714,89 @@ async function doLookup() {
 // ════════════════════════════════════════════════════════════════════
 // Dashboard
 // ════════════════════════════════════════════════════════════════════
-function renderDashboard() {
+async function renderDashboard() {
   var p = currentPlayer;
   document.getElementById('greetingArea').innerHTML =
     '<div class="greeting">Hello <strong>' + playerDisplayName(p) + '</strong></div>';
 
-  // TODO: load registered teams from Supabase when tables exist
-  document.getElementById('teamsArea').innerHTML =
-    '<div class="empty-state">No teams registered for Summer \'26</div>';
+  // Load registrations where this player is on the roster or submitted
+  document.getElementById('teamsArea').innerHTML = '<div class="empty-state" style="padding:16px">Loading...</div>';
+
+  try {
+    // Find registrations where player is on the roster
+    var rosterResp = await fetch(SUPABASE_URL + '/rest/v1/registration_roster?member_number=eq.' + p.member_number + '&select=registration_id', { headers: SB_HEADERS });
+    var rosterRows = rosterResp.ok ? await rosterResp.json() : [];
+
+    // Also find registrations submitted by this player
+    var subResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?submitted_by=eq.' + p.member_number + '&select=id', { headers: SB_HEADERS });
+    var subRows = subResp.ok ? await subResp.json() : [];
+
+    // Collect unique registration IDs
+    var regIds = {};
+    for (var i = 0; i < rosterRows.length; i++) regIds[rosterRows[i].registration_id] = true;
+    for (var j = 0; j < subRows.length; j++) regIds[subRows[j].id] = true;
+    var ids = Object.keys(regIds);
+
+    if (ids.length === 0) {
+      document.getElementById('teamsArea').innerHTML = '<div class="empty-state">No teams registered yet</div>';
+      return;
+    }
+
+    // Load full registration details
+    var regsResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?id=in.(' + ids.join(',') + ')&order=submitted_at.desc', { headers: SB_HEADERS });
+    var regs = regsResp.ok ? await regsResp.json() : [];
+
+    // Load roster for these registrations
+    var rosterFullResp = await fetch(SUPABASE_URL + '/rest/v1/registration_roster?registration_id=in.(' + ids.join(',') + ')&order=role', { headers: SB_HEADERS });
+    var allRoster = rosterFullResp.ok ? await rosterFullResp.json() : [];
+
+    // Group roster by registration_id
+    var rosterByReg = {};
+    for (var r = 0; r < allRoster.length; r++) {
+      var rid = allRoster[r].registration_id;
+      if (!rosterByReg[rid]) rosterByReg[rid] = [];
+      rosterByReg[rid].push(allRoster[r]);
+    }
+
+    var html = '';
+    for (var t = 0; t < regs.length; t++) {
+      var reg = regs[t];
+      var regRoster = rosterByReg[reg.id] || [];
+
+      // Deduplicate players (DJ has both 8 and 9 entries)
+      var uniquePlayers = {};
+      for (var rr = 0; rr < regRoster.length; rr++) {
+        var mn = regRoster[rr].member_number;
+        if (!uniquePlayers[mn]) uniquePlayers[mn] = regRoster[rr];
+        // Prefer Captain/Co-Captain role
+        if (regRoster[rr].role === 'Captain' || regRoster[rr].role === 'Co-Captain') {
+          uniquePlayers[mn] = regRoster[rr];
+        }
+      }
+      var players = Object.values(uniquePlayers);
+
+      // Find division info
+      var div = cachedDivisions.find(function(d) { return d.id === reg.division_id; });
+
+      html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:8px">';
+      html += '<div style="font-weight:700;font-size:1rem">' + esc(reg.team_name) + '</div>';
+      html += '<div style="font-size:0.85rem;color:var(--muted)">' + esc(reg.format);
+      if (div) html += ' &middot; ' + esc(div.day) + ' ' + esc(div.time) + ' &middot; ' + esc(div.areas || '');
+      html += '</div>';
+      html += '<div style="font-size:0.8rem;color:var(--muted);margin-top:4px">';
+      for (var pl = 0; pl < players.length; pl++) {
+        if (pl > 0) html += ', ';
+        var roleTag = players[pl].role === 'Captain' ? ' ★' : players[pl].role === 'Co-Captain' ? ' ☆' : '';
+        html += esc(players[pl].player_name) + roleTag;
+      }
+      html += '</div>';
+      html += '</div>';
+    }
+
+    document.getElementById('teamsArea').innerHTML = html;
+  } catch (e) {
+    document.getElementById('teamsArea').innerHTML = '<div class="empty-state">Error loading teams</div>';
+  }
 }
 
 // ════════════════════════════════════════════════════════════════════

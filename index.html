@@ -321,7 +321,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.49</div>
+      <div class="app-pill">Session Registration &middot; v0.50</div>
     </div>
   </div>
 
@@ -427,14 +427,16 @@ var FORMAT_CONFIG = {};
 var cachedFormats = [];
 
 // Ball/accent are UI-only — not in DB
+// badge: { bg, color } controls the dashboard pill badge appearance
 var FORMAT_UI = {
-  '8-Ball Open':        { ball: '8ball.svg', accent: '#1a1a1a' },
-  '9-Ball Open':        { ball: '9ball.svg', accent: '#f5c518' },
-  '8-Ball Doubles':     { ball: '8ball.svg', accent: '#1a1a1a' },
-  '9-Ball Doubles':     { ball: '9ball.svg', accent: '#f5c518' },
-  'Masters':            { ball: null, accent: '#6c757d' },
-  'Ladies':             { ball: null, accent: '#e91e8c' },
-  'Double Jeopardy Doubles': { ball: null, accent: '#6c757d' }
+  '8-Ball Open':        { ball: '8ball.svg', accent: '#1a1a1a', badge: { bg: '#1a1a1a', color: '#fff' } },
+  '9-Ball Open':        { ball: '9ball.svg', accent: '#f5c518', badge: { bg: '#f5c518', color: '#1a1a1a' } },
+  '8-Ball Doubles':     { ball: '8ball.svg', accent: '#1a1a1a', badge: { bg: '#1a1a1a', color: '#fff' } },
+  '9-Ball Doubles':     { ball: '9ball.svg', accent: '#f5c518', badge: { bg: '#f5c518', color: '#1a1a1a' } },
+  'Masters':            { ball: null, accent: '#6c757d', badge: { bg: 'linear-gradient(135deg, #1a1a2e, #4a0e8f, #e6b800)', color: '#fff' } },
+  'Ladies':             { ball: null, accent: '#e91e8c', badge: { bg: '#e91e8c', color: '#fff' } },
+  'Double Jeopardy':         { ball: null, accent: '#6c757d', badge: { bg: 'linear-gradient(135deg, #1a1a1a, #f5c518)', color: '#fff' } },
+  'Double Jeopardy Doubles': { ball: null, accent: '#6c757d', badge: { bg: 'linear-gradient(135deg, #1a1a1a, #f5c518)', color: '#fff' } }
 };
 
 async function loadFormats() {
@@ -816,11 +818,10 @@ async function renderDashboard() {
       var dayTime = div ? div.day + (div.time ? ' ' + div.time : '') : '';
       var areas = div ? (div.areas || '') : '';
       var fmtUi = FORMAT_UI[reg.format] || {};
-      var badgeColor = fmtUi.accent || 'var(--spm-accent)';
-      var badgeText = badgeColor === '#f5c518' ? 'color:#1a1a1a' : 'color:#fff';
+      var badge = fmtUi.badge || { bg: 'var(--spm-accent)', color: '#fff' };
       html += '<button class="team-pill" onclick="' + action + '">';
       html += '<div class="pill-info">';
-      html += '<div><span class="pill-format" style="background:' + badgeColor + ';' + badgeText + '">' + esc(reg.format) + '</span></div>';
+      html += '<div><span class="pill-format" style="background:' + badge.bg + ';color:' + badge.color + '">' + esc(reg.format) + '</span></div>';
       html += '<div class="pill-name">' + esc(reg.team_name) + '</div>';
       if (dayTime || areas) {
         html += '<div class="pill-detail">';

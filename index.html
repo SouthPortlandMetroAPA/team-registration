@@ -297,7 +297,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.41</div>
+      <div class="app-pill">Session Registration &middot; v0.42</div>
     </div>
   </div>
 
@@ -664,12 +664,12 @@ function renderBrowseContent() {
         html += '</div>';
         html += '</div>';
       } else {
-        // Single format: areas + time inline
-        html += '<div class="div-card">';
-        html += '<span class="div-card-areas inline">' + esc(div.areas || '') + '</span>';
-        html += '<span class="div-card-time inline">' + esc(div.time);
-        if (div.is_biweekly) html += ' &middot; <span style="background:#e0e0ff;color:#4a4a9a;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600">biweekly</span>';
-        html += '</span>';
+        // Single format: two columns — areas | time
+        html += '<div class="div-card" style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center">';
+        html += '<div class="div-card-areas">' + esc(div.areas || '') + '</div>';
+        html += '<div class="div-card-time">' + esc(div.time);
+        if (div.is_biweekly) html += ' <span style="background:#e0e0ff;color:#4a4a9a;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600">biweekly</span>';
+        html += '</div>';
         html += '</div>';
       }
     }
@@ -769,7 +769,7 @@ function renderRegForm() {
     for (var dj = 0; dj < byDay[dayName].length; dj++) {
       var div = byDay[dayName][dj];
       var areaText = div.areas || '';
-      var label = div.time + ' — ' + areaText;
+      var label = div.time + (div.is_biweekly ? ' (biweekly)' : '') + ' — ' + areaText;
       var val = String(div.id);
       var sel = (val === currentDiv) ? ' selected' : '';
       html += '<option value="' + esc(val) + '"' + sel + '>' + esc(label) + '</option>';
@@ -1318,7 +1318,19 @@ function setSingleRole(idx, role) {
 // ════════════════════════════════════════════════════════════════════
 var regInProgress = false;
 
+function hasRegData() {
+  if (roster.length > 0) return true;
+  var name = document.getElementById('regTeamName');
+  if (name && name.value.trim()) return true;
+  var host = document.getElementById('regHost');
+  if (host && host.value.trim()) return true;
+  var div = document.getElementById('regDivision');
+  if (div && div.value) return true;
+  return false;
+}
+
 function confirmCancel() {
+  if (!hasRegData()) { doCancelReg(); return; }
   showCancelDialog();
 }
 
@@ -1349,7 +1361,7 @@ function doCancelReg() {
 
 // Guard against browser back/close while registration form is open
 window.addEventListener('beforeunload', function(e) {
-  if (regInProgress && roster.length > 0) {
+  if (regInProgress && hasRegData()) {
     e.preventDefault();
     e.returnValue = '';
   }

@@ -103,7 +103,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Player Data Management &middot; v0.43</div>
+      <div class="app-pill">Player Data Management &middot; v0.44</div>
     </div>
   </div>
 
@@ -113,6 +113,7 @@
     <button class="tab-btn" onclick="switchTab('divisions')">Divisions</button>
     <button class="tab-btn" onclick="switchTab('areas')">Areas</button>
     <button class="tab-btn" onclick="switchTab('formats')">Formats</button>
+    <button class="tab-btn" onclick="switchTab('registrations')">Registrations</button>
   </div>
 
   <!-- ═══ Tab: Import ═══ -->
@@ -203,6 +204,17 @@
 
       <!-- Areas list -->
       <div id="areasList"></div>
+    </div>
+  </div>
+
+  <!-- ═══ Tab: Registrations ═══ -->
+  <div id="tabRegistrations" class="hidden">
+    <div class="spm-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <h3 style="margin:0">Team Registrations</h3>
+        <button class="spm-btn spm-btn-primary" onclick="exportRegistrations()" style="font-size:0.8rem;padding:6px 16px">&#8595; Export CSV</button>
+      </div>
+      <div id="regList" style="color:var(--muted);text-align:center;padding:16px">Loading...</div>
     </div>
   </div>
 
@@ -672,7 +684,7 @@ loadStats();
 // Tab Switching
 // ════════════════════════════════════════════════════════════════════
 function switchTab(tab) {
-  var tabs = { import: 'tabImport', divisions: 'tabDivisions', areas: 'tabAreas', formats: 'tabFormats' };
+  var tabs = { import: 'tabImport', divisions: 'tabDivisions', areas: 'tabAreas', formats: 'tabFormats', registrations: 'tabRegistrations' };
   for (var k in tabs) {
     document.getElementById(tabs[k]).classList.toggle('hidden', k !== tab);
   }
@@ -681,7 +693,8 @@ function switchTab(tab) {
     var match = (tab === 'import' && btns[i].textContent.indexOf('Import') !== -1) ||
                 (tab === 'divisions' && btns[i].textContent === 'Divisions') ||
                 (tab === 'areas' && btns[i].textContent === 'Areas') ||
-                (tab === 'formats' && btns[i].textContent === 'Formats');
+                (tab === 'formats' && btns[i].textContent === 'Formats') ||
+                (tab === 'registrations' && btns[i].textContent === 'Registrations');
     btns[i].classList.toggle('active', match);
   }
 }
@@ -925,10 +938,118 @@ function renderFormats() {
   document.getElementById('formatsList').innerHTML = html;
 }
 
+// ================================================================
+// Registrations Management
+// ================================================================
+var registrations = [];
+var regRoster = [];
+
+async function loadRegistrations() {
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?order=submitted_at.desc', { headers: sbHeaders(false) });
+    if (resp.ok) registrations = await resp.json();
+    var rResp = await fetch(SUPABASE_URL + '/rest/v1/registration_roster?order=registration_id,role', { headers: sbHeaders(false) });
+    if (rResp.ok) regRoster = await rResp.json();
+  } catch (e) {}
+  renderRegistrations();
+}
+
+function renderRegistrations() {
+  if (registrations.length === 0) {
+    document.getElementById('regList').innerHTML = '<div style="color:var(--muted);padding:16px;text-align:center">No registrations yet.</div>';
+    return;
+  }
+
+  // Group roster by reg id
+  var byReg = {};
+  for (var r = 0; r < regRoster.length; r++) {
+    var rid = regRoster[r].registration_id;
+    if (!byReg[rid]) byReg[rid] = [];
+    byReg[rid].push(regRoster[r]);
+  }
+
+  var html = '<div style="font-size:0.85rem;color:var(--muted);margin-bottom:8px">' + registrations.length + ' registration(s)</div>';
+  for (var i = 0; i < registrations.length; i++) {
+    var reg = registrations[i];
+    var players = byReg[reg.id] || [];
+    // Dedupe DJ (same player on 8 and 9)
+    var unique = {};
+    for (var p = 0; p < players.length; p++) {
+      var mn = players[p].member_number;
+      if (!unique[mn] || players[p].role === 'Captain' || players[p].role === 'Co-Captain') unique[mn] = players[p];
+    }
+    var uPlayers = Object.values(unique);
+
+    html += '<div class="list-item" style="flex-direction:column;align-items:flex-start;gap:4px">';
+    html += '<div><strong>' + esc(reg.team_name) + '</strong> &middot; ' + esc(reg.format) + ' &middot; ' + esc(reg.status) + '</div>';
+    html += '<div style="font-size:0.8rem;color:var(--muted)">';
+    for (var j = 0; j < uPlayers.length; j++) {
+      if (j > 0) html += ', ';
+      html += esc(uPlayers[j].player_name);
+      if (uPlayers[j].role === 'Captain') html += ' ★';
+      else if (uPlayers[j].role === 'Co-Captain') html += ' ☆';
+    }
+    html += '</div>';
+    html += '<div style="font-size:0.75rem;color:var(--muted)">Submitted by #' + esc(reg.submitted_by) + ' at ' + esc(reg.submitted_at) + '</div>';
+    html += '</div>';
+  }
+  document.getElementById('regList').innerHTML = html;
+}
+
+async function exportRegistrations() {
+  setStatus('Exporting registrations...', '');
+  try {
+    // Load fresh data
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?order=submitted_at.desc', { headers: sbHeaders(false) });
+    var regs = resp.ok ? await resp.json() : [];
+    var rResp = await fetch(SUPABASE_URL + '/rest/v1/registration_roster?order=registration_id,role', { headers: sbHeaders(false) });
+    var roster = rResp.ok ? await rResp.json() : [];
+
+    if (regs.length === 0) { setStatus('No registrations to export.', 'error'); return; }
+
+    // One row per roster entry with team info denormalized
+    var regMap = {};
+    for (var i = 0; i < regs.length; i++) regMap[regs[i].id] = regs[i];
+
+    var headers = ['Team Name','Format','Division ID','Host Location','Status','Submitted By','Submitted At','Member Number','Player Name','Role','Format Side','On Roster'];
+    var rows = [headers.join(',')];
+
+    for (var j = 0; j < roster.length; j++) {
+      var re = roster[j];
+      var reg = regMap[re.registration_id] || {};
+      rows.push([
+        csvEsc(reg.team_name), csvEsc(reg.format), reg.division_id || '', csvEsc(reg.host_location),
+        csvEsc(reg.status), reg.submitted_by || '', csvEsc(reg.submitted_at),
+        re.member_number, csvEsc(re.player_name), csvEsc(re.role),
+        re.format_side || '', re.on_roster
+      ].join(','));
+    }
+
+    var csv = rows.join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'team-registrations.csv';
+    link.click();
+    setStatus('Exported ' + regs.length + ' registrations.', 'success');
+  } catch (e) {
+    setStatus('Export error: ' + e.message, 'error');
+  }
+}
+
+function csvEsc(val) {
+  var s = String(val == null ? '' : val);
+  if (s.indexOf(',') !== -1 || s.indexOf('"') !== -1 || s.indexOf('\n') !== -1) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
 // Init
 loadAreas();
 loadDivisions();
 loadFormats();
+loadRegistrations();
 
 </script>
 </body>

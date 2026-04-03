@@ -193,7 +193,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.19</div>
+      <div class="app-pill">Session Registration &middot; v0.20</div>
     </div>
   </div>
 
@@ -470,6 +470,7 @@ function startRegistration(format) {
   selectedFormat = format;
   isDJ = (format === 'DJ');
   roster = [];
+  regInProgress = true;
   renderRegForm();
   showScreen('screenRegForm');
 }
@@ -513,7 +514,7 @@ function renderRegForm() {
   // Actions
   html += '<div class="action-bar">';
   html += '<button class="spm-btn spm-btn-primary" onclick="submitRegistration()">Submit Registration</button>';
-  html += '<button class="spm-btn spm-btn-secondary" onclick="showScreen(\'screenFormats\')">Back</button>';
+  html += '<button class="spm-btn spm-btn-danger" onclick="confirmCancel()">Cancel</button>';
   html += '</div>';
 
   document.getElementById('regFormContent').innerHTML = html;
@@ -923,6 +924,48 @@ function setSingleRole(idx, role) {
 // ════════════════════════════════════════════════════════════════════
 // Submit (placeholder — DB tables not yet created)
 // ════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// Cancel confirmation + beforeunload guard
+// ════════════════════════════════════════════════════════════════════
+var regInProgress = false;
+
+function confirmCancel() {
+  showCancelDialog();
+}
+
+function showCancelDialog() {
+  // Reuse toast overlay for the cancel confirmation
+  document.getElementById('toastIcon').innerHTML = '&#9888;';
+  document.getElementById('toastIcon').className = 'toast-icon';
+  document.getElementById('toastIcon').style.color = '#ffc107';
+  document.getElementById('toastMsg').innerHTML =
+    'Are you sure? All registration data will be discarded.' +
+    '<div style="display:flex;gap:8px;justify-content:center;margin-top:16px">' +
+    '<button class="spm-btn spm-btn-danger" onclick="doCancelReg()" style="min-width:100px">Discard</button>' +
+    '<button class="spm-btn spm-btn-secondary" onclick="hideToast()" style="min-width:100px">Keep Editing</button>' +
+    '</div>';
+  // Hide the default OK button
+  document.getElementById('toastOverlay').querySelector('.spm-btn-primary').style.display = 'none';
+  document.getElementById('toastOverlay').classList.add('active');
+}
+
+function doCancelReg() {
+  hideToast();
+  // Restore the OK button for future toasts
+  document.getElementById('toastOverlay').querySelector('.spm-btn-primary').style.display = '';
+  regInProgress = false;
+  roster = [];
+  showScreen('screenDash');
+}
+
+// Guard against browser back/close while registration form is open
+window.addEventListener('beforeunload', function(e) {
+  if (regInProgress && roster.length > 0) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
 function submitRegistration() {
   var teamName = document.getElementById('regTeamName').value.trim();
   var day = document.getElementById('regDay').value;
@@ -930,6 +973,7 @@ function submitRegistration() {
   if (!day) { showToast('Please select a day of play.', 'warn'); return; }
 
   // TODO: validate captain assigned, write to Supabase
+  regInProgress = false;
   showToast('Registration submitted! (DB not yet wired)', 'success');
   setTimeout(function() { hideToast(); showScreen('screenDash'); }, 2000);
 }

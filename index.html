@@ -98,7 +98,7 @@
     .dj-side { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; }
     .dj-center {
       background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-      padding: 10px 12px; position: relative; min-width: 0;
+      padding: 10px 12px; position: relative; min-width: 0; text-align: center;
     }
     .roster-col { min-width: 0; }
 
@@ -194,7 +194,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.11</div>
+      <div class="app-pill">Session Registration &middot; v0.12</div>
     </div>
   </div>
 
@@ -490,8 +490,8 @@ function renderSideControls(idx, col, onRoster, role) {
   var html = '';
   if (onRoster) {
     html += '<button class="rp-btn on-roster" onclick="toggleRoster(' + idx + ',\'' + col + '\')">On Roster</button>';
-    html += '<button class="rp-btn' + (role === 'Captain' ? ' active-c' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Captain\')">C</button>';
-    html += '<button class="rp-btn' + (role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Co-Captain\')">CC</button>';
+    html += '<button class="rp-btn' + (role === 'Captain' ? ' active-c' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Captain\')">Captain</button>';
+    html += '<button class="rp-btn' + (role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Co-Captain\')">Co-Captain</button>';
   } else {
     html += '<button class="rp-btn off-roster" onclick="toggleRoster(' + idx + ',\'' + col + '\')">Off Roster</button>';
   }
@@ -508,8 +508,8 @@ function renderSingleRoster() {
     html += '<div class="rp-name">' + playerDisplayName(p) + '</div>';
     html += '<div class="rp-member">#' + esc(p.memberNumber) + '</div>';
     html += '<div class="rp-controls">';
-    html += '<button class="rp-btn' + (p.role === 'Captain' ? ' active-c' : '') + '" onclick="setSingleRole(' + i + ',\'Captain\')">C</button>';
-    html += '<button class="rp-btn' + (p.role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setSingleRole(' + i + ',\'Co-Captain\')">CC</button>';
+    html += '<button class="rp-btn' + (p.role === 'Captain' ? ' active-c' : '') + '" onclick="setSingleRole(' + i + ',\'Captain\')">Captain</button>';
+    html += '<button class="rp-btn' + (p.role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setSingleRole(' + i + ',\'Co-Captain\')">Co-Captain</button>';
     html += '</div>';
     html += '<button class="rp-remove" onclick="removePlayer(' + i + ')" title="Remove">&times;</button>';
     html += '</div>';

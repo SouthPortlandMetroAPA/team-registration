@@ -195,14 +195,14 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.26</div>
+      <div class="app-pill">Session Registration &middot; v0.27</div>
     </div>
   </div>
 
   <!-- ═══ Screen: Auth ═══ -->
   <div id="screenAuth">
     <form class="lookup-bar" autocomplete="off" onsubmit="event.preventDefault();doLookup()" style="position:relative">
-      <input class="lookup-input" id="authInput" type="text" placeholder="APA # or Name or Email" aria-label="APA number, name, or email" inputmode="text" oninput="onAuthSearchInput()" onkeydown="onAuthSearchKeydown(event)">
+      <input class="lookup-input" id="authInput" type="text" placeholder="Search" aria-label="APA number, name, or email" inputmode="text" oninput="onAuthSearchInput()" onkeydown="onAuthSearchKeydown(event)">
       <div class="ac-dropdown" id="authACDropdown"></div>
       <button class="lookup-btn" type="submit">FIND ME</button>
     </form>
@@ -506,7 +506,7 @@ function renderRegForm() {
   } else {
     // Add player input above single-column roster
     html += '<div class="add-row">';
-    html += '<input type="text" id="addPlayerInput" placeholder="Enter a player" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">';
+    html += '<input type="text" id="addPlayerInput" placeholder="Search" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">';
     html += '<button class="spm-btn spm-btn-primary" onclick="addPlayer()">Add</button>';
     html += '<div class="ac-dropdown" id="acDropdown"></div>';
     html += '</div>';
@@ -536,7 +536,7 @@ function renderDJRoster() {
   html += '<div class="dj-col-header">';
   html += '<div><img src="8ball.svg" class="ball-img" alt="8-Ball"><span class="ball-label">8-Ball</span></div>';
   html += '<div style="display:flex;align-items:center;padding:0 4px;position:relative">';
-  html += '<input type="text" id="addPlayerInput" placeholder="Enter a player" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)" style="width:100%;border:2px solid var(--border);border-radius:12px;padding:8px 10px;font-size:0.9rem;outline:none;min-height:44px">';
+  html += '<input type="text" id="addPlayerInput" placeholder="Search" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)" style="width:100%;border:2px solid var(--border);border-radius:12px;padding:8px 10px;font-size:0.9rem;outline:none;min-height:44px">';
   html += '<div class="ac-dropdown" id="acDropdown"></div>';
   html += '</div>';
   html += '<div><img src="9ball.svg" class="ball-img" alt="9-Ball"><span class="ball-label">9-Ball</span></div>';

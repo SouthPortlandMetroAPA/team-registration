@@ -246,6 +246,10 @@
       text-decoration: underline;
     }
     .rp-remove:hover { color: var(--spm-primary); }
+    /* Hide remove link on desktop DJ cards — use Off Roster on both sides instead */
+    @media (min-width: 601px) {
+      .dj-center .rp-remove { display: none; }
+    }
     .roster-count { font-size: 0.8rem; color: var(--muted); text-align: center; margin-top: 4px; }
     .roster-count.full { color: var(--spm-primary); }
 
@@ -292,7 +296,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.38</div>
+      <div class="app-pill">Session Registration &middot; v0.39</div>
     </div>
   </div>
 
@@ -779,9 +783,14 @@ function renderRegForm() {
     html += renderDJRoster();
   } else {
     // Add player input above single-column roster
+    var full = isRosterFull();
     html += '<div class="add-row">';
-    html += '<input type="text" id="addPlayerInput" placeholder="Search" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">';
-    html += '<button class="spm-btn spm-btn-primary" onclick="addPlayer()">Add</button>';
+    if (full) {
+      html += '<input type="text" id="addPlayerInput" value="Max players added" readonly style="opacity:0.5;text-align:center;font-style:italic">';
+    } else {
+      html += '<input type="text" id="addPlayerInput" placeholder="Search" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">';
+      html += '<button class="spm-btn spm-btn-primary" onclick="addPlayer()">Add</button>';
+    }
     html += '<div class="ac-dropdown" id="acDropdown"></div>';
     html += '</div>';
     html += renderSingleRoster();
@@ -806,9 +815,14 @@ function renderDJRoster() {
 
   var html = '<div class="dj-roster">';
 
-  // Search input — full width above columns on mobile, in center column on desktop
+  // Search input
+  var djFull = isRosterFull();
   html += '<div class="dj-search-row">';
-  html += '<input type="text" id="addPlayerInput" placeholder="Search" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">';
+  if (djFull) {
+    html += '<input type="text" id="addPlayerInput" value="Max players added" readonly style="opacity:0.5;text-align:center;font-style:italic">';
+  } else {
+    html += '<input type="text" id="addPlayerInput" placeholder="Search" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">';
+  }
   html += '<div class="ac-dropdown" id="acDropdown"></div>';
   html += '</div>';
 
@@ -911,6 +925,16 @@ function renderSideControls(idx, col, onRoster, role) {
   return html;
 }
 
+function isRosterFull() {
+  if (!currentConfig) return false;
+  if (isDJ) {
+    var c8 = roster.filter(function(r) { return r.onRoster8; }).length;
+    var c9 = roster.filter(function(r) { return r.onRoster9; }).length;
+    return c8 >= currentConfig.max && c9 >= currentConfig.max;
+  }
+  return roster.length >= currentConfig.max;
+}
+
 function renderSingleRoster() {
   var count = roster.length;
   var cfg = currentConfig;
@@ -954,11 +978,6 @@ function renderSingleRoster() {
   var countCls = count >= cfg.max ? ' full' : '';
   var minLabel = count < cfg.min ? ' (need ' + (cfg.min - count) + ' more)' : '';
   html += '<div class="roster-count' + countCls + '">' + count + ' / ' + cfg.max + minLabel + '</div>';
-
-  // Hide search if roster is full (doubles = 2)
-  if (count >= cfg.max) {
-    html += '<style>.add-row { display: none !important; }</style>';
-  }
 
   return html;
 }
@@ -1071,7 +1090,7 @@ function selectACItem(idx) {
   }
 
   // Check max
-  if (!isDJ && roster.length >= currentConfig.max) { showToast('Roster full.', 'warn'); return; }
+  if (isRosterFull()) { showToast('Roster is full.', 'warn'); return; }
 
   var entry = {
     memberNumber: apa,
@@ -1121,15 +1140,8 @@ async function addPlayer() {
   }
 
   // Check max (for non-DJ, simple check; for DJ, check both columns)
-  if (!isDJ && roster.length >= currentConfig.max) {
-    showToast('Roster is full (' + currentConfig.max + ' max).', 'warn'); return;
-  }
-  if (isDJ) {
-    var c8 = roster.filter(function(r) { return r.onRoster8; }).length;
-    var c9 = roster.filter(function(r) { return r.onRoster9; }).length;
-    if (c8 >= currentConfig.max && c9 >= currentConfig.max) {
-      showToast('Both rosters are full (' + currentConfig.max + ' max each).', 'warn'); return;
-    }
+  if (isRosterFull()) {
+    showToast('Roster is full.', 'warn'); return;
   }
 
   showLoading();

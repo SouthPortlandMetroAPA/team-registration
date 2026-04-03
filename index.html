@@ -195,7 +195,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.22</div>
+      <div class="app-pill">Session Registration &middot; v0.23</div>
     </div>
   </div>
 
@@ -520,6 +520,10 @@ function renderRegForm() {
   html += '</div>';
 
   document.getElementById('regFormContent').innerHTML = html;
+
+  // Refocus the add-player input so user can quickly enter another
+  var addInput = document.getElementById('addPlayerInput');
+  if (addInput) setTimeout(function() { addInput.focus(); }, 0);
 }
 
 function renderDJRoster() {

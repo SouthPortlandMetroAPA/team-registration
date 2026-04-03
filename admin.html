@@ -75,7 +75,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Player Data Management</div>
+      <div class="app-pill">Player Data Management &middot; v0.4</div>
     </div>
   </div>
 
@@ -193,45 +193,49 @@ var COLUMN_MAP = {
 // ════════════════════════════════════════════════════════════════════
 var parsedRows = [];
 var parsedHeaders = [];
+var parsedMemberIdx = -1;
 
-function previewImport() {
+// Parse the pasted data into parsedHeaders + parsedRows.
+// Returns { valid, junk, mapped, total } or null on error.
+function parseData() {
   var raw = document.getElementById('importData').value.trim();
-  if (!raw) { setStatus('Paste data first.', 'error'); return; }
+  if (!raw) { setStatus('Paste data first.', 'error'); return null; }
 
   var lines = raw.split('\n');
-  if (lines.length < 2) { setStatus('Need at least a header row and one data row.', 'error'); return; }
+  if (lines.length < 2) { setStatus('Need at least a header row and one data row.', 'error'); return null; }
 
-  // Parse headers (tab-separated)
   parsedHeaders = lines[0].split('\t').map(function(h) { return h.trim(); });
 
-  // Map headers to columns + find member number index
   var mapped = 0;
-  var memberIdx = -1;
+  parsedMemberIdx = -1;
   for (var i = 0; i < parsedHeaders.length; i++) {
     if (COLUMN_MAP[parsedHeaders[i].toLowerCase()]) mapped++;
-    if (parsedHeaders[i].toLowerCase() === 'member number') memberIdx = i;
+    if (parsedHeaders[i].toLowerCase() === 'member number') parsedMemberIdx = i;
   }
-  if (memberIdx === -1) { setStatus('No "Member Number" column found in headers.', 'error'); return; }
+  if (parsedMemberIdx === -1) { setStatus('No "Member Number" column found.', 'error'); return null; }
 
-  // Parse data rows
   parsedRows = [];
   for (var r = 1; r < lines.length; r++) {
     var line = lines[r].trim();
     if (!line) continue;
-    var cells = line.split('\t');
-    parsedRows.push(cells);
+    parsedRows.push(line.split('\t'));
   }
 
-  // Count valid rows (8-digit APA number)
-  var validCount = 0, junkCount = 0;
+  var valid = 0, junk = 0;
   for (var v = 0; v < parsedRows.length; v++) {
-    var vDigits = String(parsedRows[v][memberIdx] || '').replace(/\D/g, '');
-    if (vDigits.length === 8) validCount++; else junkCount++;
+    var d = String(parsedRows[v][parsedMemberIdx] || '').replace(/\D/g, '');
+    if (d.length === 8) valid++; else junk++;
   }
 
-  // Show preview table (first 5 valid rows)
-  var html = '<p style="font-size:0.85rem;margin-top:12px"><strong>' + validCount + '</strong> valid players, <strong>' + mapped + '/' + parsedHeaders.length + '</strong> columns mapped';
-  if (junkCount > 0) html += ' <span style="color:var(--spm-primary)">(' + junkCount + ' rows without 8-digit APA# will be skipped)</span>';
+  return { valid: valid, junk: junk, mapped: mapped, total: parsedHeaders.length };
+}
+
+function previewImport() {
+  var stats = parseData();
+  if (!stats) return;
+
+  var html = '<p style="font-size:0.85rem;margin-top:12px"><strong>' + stats.valid + '</strong> valid players, <strong>' + stats.mapped + '/' + stats.total + '</strong> columns mapped';
+  if (stats.junk > 0) html += ' <span style="color:var(--spm-primary)">(' + stats.junk + ' rows without 8-digit APA# will be skipped)</span>';
   html += '</p>';
   html += '<div class="preview-wrap"><table class="preview-table"><thead><tr>';
   for (var h = 0; h < parsedHeaders.length; h++) {
@@ -239,19 +243,21 @@ function previewImport() {
     html += '<th style="' + (isMapped ? '' : 'color:var(--spm-primary)') + '">' + esc(parsedHeaders[h]) + '</th>';
   }
   html += '</tr></thead><tbody>';
-  var previewCount = Math.min(5, parsedRows.length);
-  for (var p = 0; p < previewCount; p++) {
+  var count = 0;
+  for (var p = 0; p < parsedRows.length && count < 5; p++) {
+    var d = String(parsedRows[p][parsedMemberIdx] || '').replace(/\D/g, '');
+    if (d.length !== 8) continue;
+    count++;
     html += '<tr>';
     for (var c = 0; c < parsedHeaders.length; c++) {
       html += '<td>' + esc(parsedRows[p][c] || '') + '</td>';
     }
     html += '</tr>';
   }
-  if (parsedRows.length > 5) html += '<tr><td colspan="' + parsedHeaders.length + '" style="color:var(--muted)">... and ' + (parsedRows.length - 5) + ' more rows</td></tr>';
+  if (stats.valid > 5) html += '<tr><td colspan="' + parsedHeaders.length + '" style="color:var(--muted)">... and ' + (stats.valid - 5) + ' more valid rows</td></tr>';
   html += '</tbody></table></div>';
 
   document.getElementById('previewArea').innerHTML = html;
-  document.getElementById('importBtn').disabled = false;
   setStatus('Preview ready. Click Import to write to database.', '');
 }
 
@@ -261,10 +267,10 @@ function previewImport() {
 async function executeImport() {
   if (!SERVICE_KEY) { setStatus('Admin key required. Add ?key=... to URL.', 'error'); return; }
 
-  // Auto-parse if Preview wasn't clicked
+  // Auto-parse if not yet parsed
   if (parsedRows.length === 0) {
-    previewImport();
-    if (parsedRows.length === 0) { setStatus('No valid data to import.', 'error'); return; }
+    var stats = parseData();
+    if (!stats) return;
   }
 
   document.getElementById('importBtn').disabled = true;
@@ -272,13 +278,7 @@ async function executeImport() {
 
   // Build per-table upsert batches
   var batches = {};  // table → [{ member_number, col1, col2, ... }]
-  var memberIdx = -1;
-
-  // Find member number column
-  for (var h = 0; h < parsedHeaders.length; h++) {
-    if (parsedHeaders[h].toLowerCase() === 'member number') { memberIdx = h; break; }
-  }
-  if (memberIdx === -1) { setStatus('No "Member Number" column found in headers.', 'error'); return; }
+  var memberIdx = parsedMemberIdx;
 
   // Collect unique member numbers for players table
   var playerRows = [];

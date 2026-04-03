@@ -103,7 +103,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Player Data Management &middot; v0.31</div>
+      <div class="app-pill">Player Data Management &middot; v0.36</div>
     </div>
   </div>
 
@@ -156,7 +156,7 @@
       <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px">A division is a specific format + day + time + area combination that teams can register for.</p>
 
       <!-- Add division form -->
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:16px;padding:12px;background:#f8f9fa;border-radius:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 60px 60px;gap:8px;align-items:end;margin-bottom:16px;padding:12px;background:#f8f9fa;border-radius:12px">
         <div><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Format</label>
           <select id="divFormat" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:6px;font-size:0.85rem;min-height:36px">
             <option>Double Jeopardy</option><option>8-Ball Open</option><option>9-Ball Open</option>
@@ -173,7 +173,13 @@
         <div><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Time</label>
           <input type="text" id="divTime" placeholder="e.g. 6:30p" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:6px;font-size:0.85rem;min-height:36px" onkeydown="if(event.key==='Enter'){event.preventDefault();addDivision()}">
         </div>
-        <div><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Areas</label>
+        <div><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Min</label>
+          <input type="number" id="divMin" value="3" min="1" max="20" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:6px;font-size:0.85rem;min-height:36px">
+        </div>
+        <div><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Max</label>
+          <input type="number" id="divMax" value="8" min="1" max="20" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:6px;font-size:0.85rem;min-height:36px">
+        </div>
+        <div style="grid-column:1/-1"><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Areas</label>
           <div id="divAreaCheckboxes" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:6px;background:#fff"></div>
         </div>
         <button class="spm-btn spm-btn-primary" style="padding:6px 16px;font-size:0.85rem;min-height:36px" onclick="addDivision()">Add</button>
@@ -752,7 +758,7 @@ async function addDivision() {
 
   var resp = await fetch(SUPABASE_URL + '/rest/v1/divisions', {
     method: 'POST', headers: sbHeadersReturn(true),
-    body: JSON.stringify({ format: format, day: day, time: time })
+    body: JSON.stringify({ format: format, day: day, time: time, min_roster: parseInt(document.getElementById('divMin').value,10)||3, max_roster: parseInt(document.getElementById('divMax').value,10)||8 })
   });
   if (!resp.ok) { setStatus('Error creating division.', 'error'); return; }
   var newDiv = await resp.json();
@@ -783,7 +789,7 @@ function renderDivisions() {
   for (var i = 0; i < divisions.length; i++) {
     var d = divisions[i];
     html += '<div class="list-item">';
-    html += '<div><strong>' + esc(d.format) + '</strong> &middot; ' + esc(d.day) + ' ' + esc(d.time);
+    html += '<div><strong>' + esc(d.format) + '</strong> &middot; ' + esc(d.day) + ' ' + esc(d.time) + ' &middot; ' + (d.min_roster||3) + '-' + (d.max_roster||8) + ' players';
     html += '<div style="font-size:0.8rem;color:var(--muted)">' + esc(d.areas || '') + '</div></div>';
     html += '<button class="remove-link" onclick="removeDivision(' + d.id + ')">remove</button>';
     html += '</div>';

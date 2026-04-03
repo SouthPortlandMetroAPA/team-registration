@@ -265,7 +265,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.35</div>
+      <div class="app-pill">Session Registration &middot; v0.36</div>
     </div>
   </div>
 
@@ -343,7 +343,7 @@
 var SUPABASE_URL = 'https://dqzbekoaysgaiqljueac.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxemJla29heXNnYWlxbGp1ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNzA5NzgsImV4cCI6MjA5MDc0Njk3OH0.cCdGxZ4zEFzU_r6lWSDeoNWG67Q4MSYCAtpds035dfU';
 var SB_HEADERS = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY };
-var MAX_ROSTER = 8;
+// currentConfig.max is now currentConfig.max (set per format)
 
 // ════════════════════════════════════════════════════════════════════
 // State
@@ -351,8 +351,21 @@ var MAX_ROSTER = 8;
 var currentPlayer = null;
 var selectedFormat = '';
 var isDJ = false;
+var currentConfig = null;  // format config for current registration
 var roster = [];
 var cachedDivisions = [];  // loaded from Supabase on startup
+
+// Format defaults — overridden by division min/max from DB when available
+var FORMAT_CONFIG = {
+  'Double Jeopardy':         { min: 3, max: 8, hasCoCaptain: true, isDJ: true, ball: null, accent: null },
+  '8-Ball Open':             { min: 3, max: 8, hasCoCaptain: true, isDJ: false, ball: '8ball.svg', accent: '#1a1a1a' },
+  '9-Ball Open':             { min: 3, max: 8, hasCoCaptain: true, isDJ: false, ball: '9ball.svg', accent: '#f5c518' },
+  'Double Jeopardy Doubles': { min: 2, max: 2, hasCoCaptain: false, isDJ: false, ball: null, accent: '#6c757d' },
+  '8-Ball Doubles':          { min: 2, max: 2, hasCoCaptain: false, isDJ: false, ball: '8ball.svg', accent: '#1a1a1a' },
+  '9-Ball Doubles':          { min: 2, max: 2, hasCoCaptain: false, isDJ: false, ball: '9ball.svg', accent: '#f5c518' },
+  'Masters':                 { min: 3, max: 4, hasCoCaptain: true, isDJ: false, ball: null, accent: '#6c757d' },
+  'Ladies':                  { min: 3, max: 5, hasCoCaptain: true, isDJ: false, ball: null, accent: '#e91e8c' }
+};
 
 // Load divisions from Supabase
 async function loadDivisions() {
@@ -550,7 +563,8 @@ function renderDashboard() {
 // ════════════════════════════════════════════════════════════════════
 function startRegistration(format) {
   selectedFormat = format;
-  isDJ = (format === 'Double Jeopardy');
+  currentConfig = FORMAT_CONFIG[format] || { min: 3, max: 8, hasCoCaptain: true, isDJ: false, ball: null, accent: null };
+  isDJ = currentConfig.isDJ;
   roster = [];
   regInProgress = true;
   renderRegForm();
@@ -572,7 +586,7 @@ function renderRegForm() {
   var currentDiv = document.getElementById('regDivision') ? document.getElementById('regDivision').value : '';
 
   html += '<div class="form-group"><label>Division</label>';
-  html += '<select id="regDivision"><option value="">-- Select --</option>';
+  html += '<select id="regDivision" onchange="onDivisionSelect()"><option value="">-- Select --</option>';
 
   // Group by day
   var dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -657,15 +671,15 @@ function renderDJRoster() {
 
   // Counts — desktop (in 3-column header grid)
   html += '<div class="dj-col-header" style="margin-top:4px">';
-  html += '<div class="roster-count' + (count8 >= MAX_ROSTER ? ' full' : '') + '">' + count8 + ' / ' + MAX_ROSTER + '</div>';
+  html += '<div class="roster-count' + (count8 >= currentConfig.max ? ' full' : '') + '">' + count8 + ' / ' + currentConfig.max + '</div>';
   html += '<div></div>';
-  html += '<div class="roster-count' + (count9 >= MAX_ROSTER ? ' full' : '') + '">' + count9 + ' / ' + MAX_ROSTER + '</div>';
+  html += '<div class="roster-count' + (count9 >= currentConfig.max ? ' full' : '') + '">' + count9 + ' / ' + currentConfig.max + '</div>';
   html += '</div>';
 
   // Counts — mobile
   html += '<div class="dj-mobile-counts">';
-  html += '<div class="roster-count' + (count8 >= MAX_ROSTER ? ' full' : '') + '"><img src="8ball.svg" style="width:16px;height:16px;vertical-align:middle"> ' + count8 + '/' + MAX_ROSTER + '</div>';
-  html += '<div class="roster-count' + (count9 >= MAX_ROSTER ? ' full' : '') + '"><img src="9ball.svg" style="width:16px;height:16px;vertical-align:middle"> ' + count9 + '/' + MAX_ROSTER + '</div>';
+  html += '<div class="roster-count' + (count8 >= currentConfig.max ? ' full' : '') + '"><img src="8ball.svg" style="width:16px;height:16px;vertical-align:middle"> ' + count8 + '/' + currentConfig.max + '</div>';
+  html += '<div class="roster-count' + (count9 >= currentConfig.max ? ' full' : '') + '"><img src="9ball.svg" style="width:16px;height:16px;vertical-align:middle"> ' + count9 + '/' + currentConfig.max + '</div>';
   html += '</div>';
 
   html += '</div>';
@@ -744,23 +758,53 @@ function renderSideControls(idx, col, onRoster, role) {
 
 function renderSingleRoster() {
   var count = roster.length;
+  var cfg = currentConfig;
   var html = '';
+
+  // Format header with ball icon
+  if (cfg.ball) {
+    html += '<div style="text-align:center;margin-bottom:12px"><img src="' + cfg.ball + '" style="width:40px;height:40px"></div>';
+  }
 
   for (var i = 0; i < roster.length; i++) {
     var p = roster[i];
-    html += '<div class="rp-card">';
-    html += '<div class="rp-name">' + esc(p.firstName) + '</div>';
-    html += '<div class="rp-name">' + esc(p.lastName) + '</div>';
+    var borderColor = cfg.accent ? 'border-left:4px solid ' + cfg.accent + ';' : '';
+    html += '<div class="rp-card" style="' + borderColor + 'display:flex;align-items:center;gap:12px">';
+
+    // Ball icon (desktop)
+    if (cfg.ball) {
+      html += '<img src="' + cfg.ball + '" style="width:28px;height:28px;flex-shrink:0" class="rp-ball-icon">';
+    }
+
+    // Name + APA#
+    html += '<div style="flex:1;min-width:0">';
+    html += '<div class="rp-name">' + esc(p.firstName) + ' ' + esc(p.lastName) + '</div>';
     html += '<div class="rp-member">#' + esc(p.memberNumber) + '</div>';
-    html += '<div class="rp-controls">';
-    html += '<button class="rp-btn' + (p.role === 'Captain' ? ' active-c' : '') + '" onclick="setSingleRole(' + i + ',\'Captain\')">Captain</button>';
-    html += '<button class="rp-btn' + (p.role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setSingleRole(' + i + ',\'Co-Captain\')">Co-Captain</button>';
     html += '</div>';
-    html += '<button class="rp-remove" onclick="removePlayer(' + i + ')">remove</button>';
+
+    // Role pills
+    html += '<div class="rp-controls" style="margin:0">';
+    html += '<button class="rp-btn' + (p.role === 'Captain' ? ' active-c' : '') + '" onclick="setSingleRole(' + i + ',\'Captain\')">' + (cfg.max === 2 ? '★ Captain' : 'Captain') + '</button>';
+    if (cfg.hasCoCaptain) {
+      html += '<button class="rp-btn' + (p.role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setSingleRole(' + i + ',\'Co-Captain\')">Co-Capt</button>';
+    }
+    html += '</div>';
+
+    // Remove
+    html += '<button class="rp-remove" onclick="removePlayer(' + i + ')" style="margin:0;flex-shrink:0">✕</button>';
     html += '</div>';
   }
 
-  html += '<div class="roster-count' + (count >= MAX_ROSTER ? ' full' : '') + '">' + count + ' / ' + MAX_ROSTER + '</div>';
+  // Count + min indicator
+  var countCls = count >= cfg.max ? ' full' : '';
+  var minLabel = count < cfg.min ? ' (need ' + (cfg.min - count) + ' more)' : '';
+  html += '<div class="roster-count' + countCls + '">' + count + ' / ' + cfg.max + minLabel + '</div>';
+
+  // Hide search if roster is full (doubles = 2)
+  if (count >= cfg.max) {
+    html += '<style>.add-row { display: none !important; }</style>';
+  }
+
   return html;
 }
 
@@ -872,7 +916,7 @@ function selectACItem(idx) {
   }
 
   // Check max
-  if (!isDJ && roster.length >= MAX_ROSTER) { showToast('Roster full.', 'warn'); return; }
+  if (!isDJ && roster.length >= currentConfig.max) { showToast('Roster full.', 'warn'); return; }
 
   var entry = {
     memberNumber: apa,
@@ -922,14 +966,14 @@ async function addPlayer() {
   }
 
   // Check max (for non-DJ, simple check; for DJ, check both columns)
-  if (!isDJ && roster.length >= MAX_ROSTER) {
-    showToast('Roster is full (' + MAX_ROSTER + ' max).', 'warn'); return;
+  if (!isDJ && roster.length >= currentConfig.max) {
+    showToast('Roster is full (' + currentConfig.max + ' max).', 'warn'); return;
   }
   if (isDJ) {
     var c8 = roster.filter(function(r) { return r.onRoster8; }).length;
     var c9 = roster.filter(function(r) { return r.onRoster9; }).length;
-    if (c8 >= MAX_ROSTER && c9 >= MAX_ROSTER) {
-      showToast('Both rosters are full (' + MAX_ROSTER + ' max each).', 'warn'); return;
+    if (c8 >= currentConfig.max && c9 >= currentConfig.max) {
+      showToast('Both rosters are full (' + currentConfig.max + ' max each).', 'warn'); return;
     }
   }
 
@@ -991,11 +1035,11 @@ function toggleRoster(idx, col) {
 
   // Check max
   var count = roster.filter(function(r) { return col === '8' ? r.onRoster8 : r.onRoster9; }).length;
-  if (count > MAX_ROSTER) {
+  if (count > currentConfig.max) {
     // Revert
     if (col === '8') roster[idx].onRoster8 = false;
     else roster[idx].onRoster9 = false;
-    showToast('Max ' + MAX_ROSTER + ' players per roster.', 'warn');
+    showToast('Max ' + currentConfig.max + ' players per roster.', 'warn');
   }
 
   // Auto-remove if off both rosters
@@ -1015,20 +1059,21 @@ function autoAssignRoles() {
     autoAssignDJCol('role9', 'onRoster9');
   } else {
     var hasCaptain = roster.some(function(r) { return r.role === 'Captain'; });
-    var hasCoCaptain = roster.some(function(r) { return r.role === 'Co-Captain'; });
     if (!hasCaptain && roster.length >= 1) {
-      // Assign to first regular player (not Co-Captain)
       for (var ci = 0; ci < roster.length; ci++) {
         if (roster[ci].role === 'Player') { roster[ci].role = 'Captain'; break; }
       }
-      // If no regular player found, all are Co-Captain — promote first one
       if (!roster.some(function(r) { return r.role === 'Captain'; }) && roster.length >= 1) {
         roster[0].role = 'Captain';
       }
     }
-    if (!hasCoCaptain && roster.length >= 2) {
-      for (var i = 0; i < roster.length; i++) {
-        if (roster[i].role === 'Player') { roster[i].role = 'Co-Captain'; break; }
+    // Only assign Co-Captain if format supports it
+    if (currentConfig && currentConfig.hasCoCaptain) {
+      var hasCoCaptain = roster.some(function(r) { return r.role === 'Co-Captain'; });
+      if (!hasCoCaptain && roster.length >= 2) {
+        for (var i = 0; i < roster.length; i++) {
+          if (roster[i].role === 'Player') { roster[i].role = 'Co-Captain'; break; }
+        }
       }
     }
   }
@@ -1136,16 +1181,115 @@ window.addEventListener('beforeunload', function(e) {
   }
 });
 
-function submitRegistration() {
+function onDivisionSelect() {
+  var divId = document.getElementById('regDivision').value;
+  if (!divId) return;
+  // Find the division and override min/max from DB
+  var div = cachedDivisions.find(function(d) { return String(d.id) === divId; });
+  if (div && div.min_roster) currentConfig.min = div.min_roster;
+  if (div && div.max_roster) currentConfig.max = div.max_roster;
+  renderRegForm();
+}
+
+async function submitRegistration() {
   var teamName = document.getElementById('regTeamName').value.trim();
   var divisionId = document.getElementById('regDivision').value;
+  var hostLocation = document.getElementById('regHost') ? document.getElementById('regHost').value.trim() : '';
+  var cfg = currentConfig;
+
   if (!teamName) { showToast('Team name is required.', 'warn'); return; }
   if (!divisionId) { showToast('Please select a division.', 'warn'); return; }
 
-  // TODO: validate captain assigned, write to Supabase
-  regInProgress = false;
-  showToast('Registration submitted! (DB not yet wired)', 'success');
-  setTimeout(function() { hideToast(); showScreen('screenDash'); }, 2000);
+  // Check min roster
+  if (isDJ) {
+    var on8 = roster.filter(function(r) { return r.onRoster8; }).length;
+    var on9 = roster.filter(function(r) { return r.onRoster9; }).length;
+    if (on8 < cfg.min) { showToast('8-Ball needs at least ' + cfg.min + ' players.', 'warn'); return; }
+    if (on9 < cfg.min) { showToast('9-Ball needs at least ' + cfg.min + ' players.', 'warn'); return; }
+  } else {
+    if (roster.length < cfg.min) { showToast('Need at least ' + cfg.min + ' players.', 'warn'); return; }
+  }
+
+  // Check captain assigned
+  if (isDJ) {
+    var hasCapt8 = roster.some(function(r) { return r.onRoster8 && r.role8 === 'Captain'; });
+    var hasCapt9 = roster.some(function(r) { return r.onRoster9 && r.role9 === 'Captain'; });
+    if (!hasCapt8) { showToast('Assign a Captain for 8-Ball.', 'warn'); return; }
+    if (!hasCapt9) { showToast('Assign a Captain for 9-Ball.', 'warn'); return; }
+  } else {
+    if (!roster.some(function(r) { return r.role === 'Captain'; })) { showToast('Assign a Captain.', 'warn'); return; }
+  }
+
+  showLoading();
+
+  try {
+    var SERVICE_KEY = new URLSearchParams(window.location.search).get('key') || '';
+    var writeHeaders = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=representation' };
+    // Use service key if available (admin), otherwise anon — but anon can't write with RLS
+    // For now, we need to allow anon INSERT or use a function. Let's use service key from URL if present.
+    if (SERVICE_KEY) {
+      writeHeaders['apikey'] = SERVICE_KEY;
+      writeHeaders['Authorization'] = 'Bearer ' + SERVICE_KEY;
+    }
+
+    // Insert registration
+    var regResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations', {
+      method: 'POST', headers: writeHeaders,
+      body: JSON.stringify({
+        team_name: teamName,
+        division_id: parseInt(divisionId, 10),
+        format: selectedFormat,
+        host_location: hostLocation,
+        submitted_by: currentPlayer.member_number
+      })
+    });
+
+    if (!regResp.ok) {
+      var err = await regResp.text();
+      hideLoading();
+      showToast('Registration failed: ' + err, 'error');
+      return;
+    }
+
+    var regData = await regResp.json();
+    var regId = regData[0].id;
+
+    // Build roster entries
+    var rosterRows = [];
+    if (isDJ) {
+      for (var i = 0; i < roster.length; i++) {
+        var p = roster[i];
+        if (p.onRoster8) {
+          rosterRows.push({ registration_id: regId, member_number: p.memberNumber, player_name: p.firstName + ' ' + p.lastName, role: p.role8, format_side: '8', on_roster: true });
+        }
+        if (p.onRoster9) {
+          rosterRows.push({ registration_id: regId, member_number: p.memberNumber, player_name: p.firstName + ' ' + p.lastName, role: p.role9, format_side: '9', on_roster: true });
+        }
+      }
+    } else {
+      for (var j = 0; j < roster.length; j++) {
+        var q = roster[j];
+        rosterRows.push({ registration_id: regId, member_number: q.memberNumber, player_name: q.firstName + ' ' + q.lastName, role: q.role, format_side: null, on_roster: true });
+      }
+    }
+
+    // Insert roster
+    if (rosterRows.length > 0) {
+      await fetch(SUPABASE_URL + '/rest/v1/registration_roster', {
+        method: 'POST', headers: writeHeaders,
+        body: JSON.stringify(rosterRows)
+      });
+    }
+
+    hideLoading();
+    regInProgress = false;
+    showToast('Registration submitted!', 'success');
+    setTimeout(function() { hideToast(); showScreen('screenDash'); }, 2000);
+
+  } catch (e) {
+    hideLoading();
+    showToast('Error: ' + e.message, 'error');
+  }
 }
 </script>
 </body>

@@ -370,7 +370,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.66</div>
+      <div class="app-pill">Session Registration &middot; v0.67</div>
     </div>
   </div>
 
@@ -445,7 +445,7 @@
 <!-- Search Hint (first-time only) -->
 <div class="hint-overlay" id="hintOverlay">
   <div class="hint-box">
-    <div class="hint-icon">&#128161;</div>
+    <img src="lightbulb.svg" alt="Tip" style="width:56px;height:56px;margin:0 auto 12px;display:block">
     <div class="hint-title">Finding Players is Easy</div>
     <div class="hint-body">
       When adding players to your roster, just start typing in the search box. You can search by:<br>
@@ -959,7 +959,8 @@ function startRegistration(format) {
   var oldHost = document.getElementById('regHost'); if (oldHost) oldHost.value = '';
 
   // Auto-add the logged-in player as first roster entry (Captain)
-  if (currentPlayer) {
+  // Skip silently for Ladies format if player is not female
+  if (currentPlayer && !(format === 'Ladies' && currentPlayer.gender !== 'F')) {
     var entry = {
       memberNumber: currentPlayer.member_number,
       firstName: currentPlayer.first_name || '',

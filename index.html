@@ -313,7 +313,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.46</div>
+      <div class="app-pill">Session Registration &middot; v0.47</div>
     </div>
   </div>
 
@@ -1395,20 +1395,35 @@ function setSingleRole(idx, role) {
 // Cancel confirmation + beforeunload guard
 // ════════════════════════════════════════════════════════════════════
 var regInProgress = false;
+var regSnapshot = '';  // JSON snapshot of form state when editing starts
 
-function hasRegData() {
-  if (roster.length > 0) return true;
-  var name = document.getElementById('regTeamName');
-  if (name && name.value.trim()) return true;
-  var host = document.getElementById('regHost');
-  if (host && host.value.trim()) return true;
-  var div = document.getElementById('regDivision');
-  if (div && div.value) return true;
-  return false;
+function takeSnapshot() {
+  return JSON.stringify({
+    teamName: (document.getElementById('regTeamName') || {}).value || '',
+    division: (document.getElementById('regDivision') || {}).value || '',
+    host: (document.getElementById('regHost') || {}).value || '',
+    roster: roster.map(function(r) { return JSON.stringify(r); }).sort().join('|')
+  });
+}
+
+function hasChanges() {
+  if (!editingRegId) {
+    // New registration — any data = changes
+    if (roster.length > 0) return true;
+    var name = document.getElementById('regTeamName');
+    if (name && name.value.trim()) return true;
+    var host = document.getElementById('regHost');
+    if (host && host.value.trim()) return true;
+    var div = document.getElementById('regDivision');
+    if (div && div.value) return true;
+    return false;
+  }
+  // Editing — compare to snapshot
+  return takeSnapshot() !== regSnapshot;
 }
 
 function confirmCancel() {
-  if (!hasRegData()) { doCancelReg(); return; }
+  if (!hasChanges()) { doCancelReg(); return; }
   showCancelDialog();
 }
 
@@ -1440,7 +1455,7 @@ function doCancelReg() {
 
 // Guard against browser back/close while registration form is open
 window.addEventListener('beforeunload', function(e) {
-  if (regInProgress && hasRegData()) {
+  if (regInProgress && hasChanges()) {
     e.preventDefault();
     e.returnValue = '';
   }
@@ -1579,11 +1594,12 @@ async function editRegistration(regId) {
     hideLoading();
     renderRegForm();
 
-    // Pre-fill after render
+    // Pre-fill after render, then snapshot for change detection
     setTimeout(function() {
       var el = document.getElementById('regTeamName'); if (el) el.value = reg.team_name;
       var dv = document.getElementById('regDivision'); if (dv) dv.value = String(reg.division_id || '');
       var ho = document.getElementById('regHost'); if (ho) ho.value = reg.host_location || '';
+      regSnapshot = takeSnapshot();
     }, 0);
 
     showScreen('screenRegForm');

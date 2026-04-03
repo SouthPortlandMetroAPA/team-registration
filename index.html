@@ -370,7 +370,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.77</div>
+      <div class="app-pill">Session Registration &middot; v0.78</div>
     </div>
   </div>
 
@@ -398,9 +398,7 @@
   <!-- ═══ Screen: Dashboard ═══ -->
   <div id="screenDash" class="hidden">
     <div id="greetingArea"></div>
-    <div class="spm-card">
-      <div id="teamsArea"></div>
-    </div>
+    <div id="teamsArea"></div>
     <div class="dash-actions">
       <button class="spm-btn spm-btn-primary" onclick="showFormatsScreen()">Register a Team</button>
     </div>
@@ -480,7 +478,7 @@
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase `apps` table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.77';
+var APP_VERSION = '0.78';
 var _versionMismatch = false;
 
 function checkVersion() {

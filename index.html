@@ -195,7 +195,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.31</div>
+      <div class="app-pill">Session Registration &middot; v0.32</div>
     </div>
   </div>
 
@@ -282,6 +282,16 @@ var currentPlayer = null;
 var selectedFormat = '';
 var isDJ = false;
 var roster = [];
+var cachedDivisions = [];  // loaded from Supabase on startup
+
+// Load divisions from Supabase
+async function loadDivisions() {
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/division_full?order=day,format', { headers: SB_HEADERS });
+    if (resp.ok) cachedDivisions = await resp.json();
+  } catch (e) { /* silent */ }
+}
+loadDivisions();
 // Each roster entry:
 // { memberNumber, firstName, nickname, lastName,
 //   onRoster8: bool, onRoster9: bool,       (DJ only)
@@ -487,20 +497,34 @@ function renderRegForm() {
   html += '<div class="form-group"><label>Team Name</label>';
   html += '<input type="text" id="regTeamName" value="' + esc(document.getElementById('regTeamName') ? document.getElementById('regTeamName').value : '') + '"></div>';
 
-  // Division dropdown — filtered by selected format
-  var divs = JSON.parse(localStorage.getItem('spm_divisions') || '[]');
-  var matchingDivs = divs.filter(function(d) { return d.format === selectedFormat; });
+  // Division dropdown — filtered by selected format, grouped by day
+  var matchingDivs = cachedDivisions.filter(function(d) { return d.format === selectedFormat; });
   var currentDiv = document.getElementById('regDivision') ? document.getElementById('regDivision').value : '';
 
   html += '<div class="form-group"><label>Division</label>';
   html += '<select id="regDivision"><option value="">-- Select --</option>';
+
+  // Group by day
+  var dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  var byDay = {};
   for (var di = 0; di < matchingDivs.length; di++) {
     var md = matchingDivs[di];
-    var areaText = md.areas ? md.areas.join(', ') : (md.area || '');
-    var label = md.day + ' ' + md.time + ' — ' + areaText;
-    var val = md.day + '|' + md.time;
-    var sel = (val === currentDiv) ? ' selected' : '';
-    html += '<option value="' + esc(val) + '"' + sel + '>' + esc(label) + '</option>';
+    if (!byDay[md.day]) byDay[md.day] = [];
+    byDay[md.day].push(md);
+  }
+  for (var dIdx = 0; dIdx < dayOrder.length; dIdx++) {
+    var dayName = dayOrder[dIdx];
+    if (!byDay[dayName]) continue;
+    html += '<optgroup label="' + esc(dayName) + '">';
+    for (var dj = 0; dj < byDay[dayName].length; dj++) {
+      var div = byDay[dayName][dj];
+      var areaText = div.areas || '';
+      var label = div.time + ' — ' + areaText;
+      var val = String(div.id);
+      var sel = (val === currentDiv) ? ' selected' : '';
+      html += '<option value="' + esc(val) + '"' + sel + '>' + esc(label) + '</option>';
+    }
+    html += '</optgroup>';
   }
   if (matchingDivs.length === 0) {
     html += '<option value="" disabled>No divisions available</option>';
@@ -1002,9 +1026,9 @@ window.addEventListener('beforeunload', function(e) {
 
 function submitRegistration() {
   var teamName = document.getElementById('regTeamName').value.trim();
-  var division = document.getElementById('regDivision').value;
+  var divisionId = document.getElementById('regDivision').value;
   if (!teamName) { showToast('Team name is required.', 'warn'); return; }
-  if (!division) { showToast('Please select a division.', 'warn'); return; }
+  if (!divisionId) { showToast('Please select a division.', 'warn'); return; }
 
   // TODO: validate captain assigned, write to Supabase
   regInProgress = false;

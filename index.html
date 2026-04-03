@@ -193,7 +193,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.17</div>
+      <div class="app-pill">Session Registration &middot; v0.18</div>
     </div>
   </div>
 
@@ -578,8 +578,14 @@ function renderDJPlayerRow(idx) {
 
 function renderSideControls(idx, col, onRoster, role) {
   var html = '';
+  var isCaptainOrCo = (role === 'Captain' || role === 'Co-Captain');
   if (onRoster) {
-    html += '<button class="rp-btn on-roster" onclick="toggleRoster(' + idx + ',\'' + col + '\')">On Roster</button>';
+    // Can't go off roster if Captain or Co-Captain — role is required
+    if (isCaptainOrCo) {
+      html += '<button class="rp-btn on-roster" disabled style="opacity:0.6;cursor:default">On Roster</button>';
+    } else {
+      html += '<button class="rp-btn on-roster" onclick="toggleRoster(' + idx + ',\'' + col + '\')">On Roster</button>';
+    }
     html += '<button class="rp-btn' + (role === 'Captain' ? ' active-c' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Captain\')">Captain</button>';
     html += '<button class="rp-btn' + (role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Co-Captain\')">Co-Captain</button>';
   } else {

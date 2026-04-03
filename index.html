@@ -195,7 +195,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.27</div>
+      <div class="app-pill">Session Registration &middot; v0.29</div>
     </div>
   </div>
 
@@ -487,13 +487,24 @@ function renderRegForm() {
   html += '<div class="form-group"><label>Team Name</label>';
   html += '<input type="text" id="regTeamName" value="' + esc(document.getElementById('regTeamName') ? document.getElementById('regTeamName').value : '') + '"></div>';
 
-  // Day of play
-  html += '<div class="form-group"><label>Day of Play</label>';
-  html += '<select id="regDay"><option value="">-- Select --</option>';
-  ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].forEach(function(d) {
-    var sel = (document.getElementById('regDay') && document.getElementById('regDay').value === d) ? ' selected' : '';
-    html += '<option' + sel + '>' + d + '</option>';
-  });
+  // Division dropdown — filtered by selected format
+  var divs = JSON.parse(localStorage.getItem('spm_divisions') || '[]');
+  var matchingDivs = divs.filter(function(d) { return d.format === selectedFormat; });
+  var currentDiv = document.getElementById('regDivision') ? document.getElementById('regDivision').value : '';
+
+  html += '<div class="form-group"><label>Division</label>';
+  html += '<select id="regDivision"><option value="">-- Select --</option>';
+  for (var di = 0; di < matchingDivs.length; di++) {
+    var md = matchingDivs[di];
+    var areaText = md.areas ? md.areas.join(', ') : (md.area || '');
+    var label = md.day + ' ' + md.time + ' — ' + areaText;
+    var val = md.day + '|' + md.time;
+    var sel = (val === currentDiv) ? ' selected' : '';
+    html += '<option value="' + esc(val) + '"' + sel + '>' + esc(label) + '</option>';
+  }
+  if (matchingDivs.length === 0) {
+    html += '<option value="" disabled>No divisions for this format — add in Admin</option>';
+  }
   html += '</select></div>';
 
   // Host location
@@ -991,9 +1002,9 @@ window.addEventListener('beforeunload', function(e) {
 
 function submitRegistration() {
   var teamName = document.getElementById('regTeamName').value.trim();
-  var day = document.getElementById('regDay').value;
+  var division = document.getElementById('regDivision').value;
   if (!teamName) { showToast('Team name is required.', 'warn'); return; }
-  if (!day) { showToast('Please select a day of play.', 'warn'); return; }
+  if (!division) { showToast('Please select a division.', 'warn'); return; }
 
   // TODO: validate captain assigned, write to Supabase
   regInProgress = false;

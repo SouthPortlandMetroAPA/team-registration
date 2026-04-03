@@ -103,7 +103,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Player Data Management &middot; v0.28</div>
+      <div class="app-pill">Player Data Management &middot; v0.29</div>
     </div>
   </div>
 
@@ -743,22 +743,21 @@ function addDivision() {
   var cbs = document.querySelectorAll('.div-area-cb:checked');
   if (cbs.length === 0) { setStatus('Select at least one area.', 'error'); return; }
 
-  var added = 0, skipped = 0;
-  for (var i = 0; i < cbs.length; i++) {
-    var area = cbs[i].value;
-    var dup = divisions.some(function(d) {
-      return d.format === format && d.day === day && d.area === area;
-    });
-    if (dup) { skipped++; continue; }
-    divisions.push({ format: format, day: day, time: time, area: area });
-    added++;
-  }
+  var selectedAreas = [];
+  for (var i = 0; i < cbs.length; i++) selectedAreas.push(cbs[i].value);
 
+  // Check duplicate (same format + day)
+  var dup = divisions.some(function(d) {
+    return d.format === format && d.day === day;
+  });
+  if (dup) { setStatus('A ' + format + ' division on ' + day + ' already exists.', 'error'); return; }
+
+  divisions.push({ format: format, day: day, time: time, areas: selectedAreas });
   divisions.sort(function(a, b) {
     var days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
     var d = days.indexOf(a.day) - days.indexOf(b.day);
     if (d !== 0) return d;
-    return a.format.localeCompare(b.format) || a.area.localeCompare(b.area);
+    return a.format.localeCompare(b.format);
   });
 
   // Uncheck all
@@ -766,9 +765,7 @@ function addDivision() {
   for (var j = 0; j < allCbs.length; j++) allCbs[j].checked = false;
 
   saveDivisions();
-  var msg = 'Added ' + added + ' division' + (added !== 1 ? 's' : '');
-  if (skipped) msg += ' (' + skipped + ' already existed)';
-  setStatus(msg, added > 0 ? 'success' : 'error');
+  setStatus('Division added.', 'success');
 }
 
 function removeDivision(idx) {
@@ -780,8 +777,11 @@ function renderDivisions() {
   var html = '';
   for (var i = 0; i < divisions.length; i++) {
     var d = divisions[i];
+    // Support both old format (d.area string) and new format (d.areas array)
+    var areaText = d.areas ? d.areas.join(', ') : (d.area || '');
     html += '<div class="list-item">';
-    html += '<span><strong>' + esc(d.format) + '</strong> &middot; ' + esc(d.day) + ' ' + esc(d.time) + ' &middot; ' + esc(d.area) + '</span>';
+    html += '<div><strong>' + esc(d.format) + '</strong> &middot; ' + esc(d.day) + ' ' + esc(d.time);
+    html += '<div style="font-size:0.8rem;color:var(--muted)">' + esc(areaText) + '</div></div>';
     html += '<button class="remove-link" onclick="removeDivision(' + i + ')">remove</button>';
     html += '</div>';
   }

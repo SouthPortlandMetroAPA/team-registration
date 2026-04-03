@@ -194,7 +194,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.14</div>
+      <div class="app-pill">Session Registration &middot; v0.15</div>
     </div>
   </div>
 
@@ -380,6 +380,8 @@ async function doAuthACSearch(query) {
 function renderAuthACDropdown() {
   var dd = document.getElementById('authACDropdown');
   if (!dd) return;
+  var input = document.getElementById('authInput');
+  if (!input || !input.value.trim()) { closeAuthAC(); return; }
   if (authACResults.length === 0) { closeAuthAC(); return; }
   var html = '';
   for (var i = 0; i < authACResults.length; i++) {
@@ -663,6 +665,9 @@ async function doACSearch(query) {
 function renderACDropdown() {
   var dd = document.getElementById('acDropdown');
   if (!dd) return;
+  // Don't show if input is now empty (user already submitted)
+  var input = document.getElementById('addPlayerInput');
+  if (!input || !input.value.trim()) { closeAC(); return; }
   if (acResults.length === 0) { closeAC(); return; }
 
   var html = '';

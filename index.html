@@ -370,7 +370,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.76</div>
+      <div class="app-pill">Session Registration &middot; v0.77</div>
     </div>
   </div>
 
@@ -480,7 +480,7 @@
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase `apps` table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.76';
+var APP_VERSION = '0.77';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -938,7 +938,7 @@ async function renderDashboard() {
     var rosterRows = rosterResp.ok ? await rosterResp.json() : [];
 
     // Also find registrations submitted by this player
-    var subResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?submitted_by=eq.' + p.member_number + '&deleted=eq.false&select=id', { headers: SB_HEADERS });
+    var subResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?submitted_by=eq.' + p.member_number + '&select=id', { headers: SB_HEADERS });
     var subRows = subResp.ok ? await subResp.json() : [];
 
     // Collect unique registration IDs
@@ -953,7 +953,7 @@ async function renderDashboard() {
     }
 
     // Load full registration details
-    var regsResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?id=in.(' + ids.join(',') + ')&deleted=eq.false&order=submitted_at.desc', { headers: SB_HEADERS });
+    var regsResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?id=in.(' + ids.join(',') + ')&order=submitted_at.desc', { headers: SB_HEADERS });
     var regs = regsResp.ok ? await regsResp.json() : [];
 
     // Load roster for these registrations
@@ -1930,11 +1930,9 @@ async function deleteRegistration(regId) {
     var writeHeaders = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
     if (SERVICE_KEY) { writeHeaders['apikey'] = SERVICE_KEY; writeHeaders['Authorization'] = 'Bearer ' + SERVICE_KEY; }
 
-    // Soft delete — flag as deleted, UI filters it out
-    var delResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?id=eq.' + regId, {
-      method: 'PATCH', headers: writeHeaders,
-      body: JSON.stringify({ deleted: true })
-    });
+    // Hard delete — remove roster entries first (foreign key), then registration
+    await fetch(SUPABASE_URL + '/rest/v1/registration_roster?registration_id=eq.' + regId, { method: 'DELETE', headers: writeHeaders });
+    var delResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?id=eq.' + regId, { method: 'DELETE', headers: writeHeaders });
 
     hideLoading();
     if (!delResp.ok) { showToast('Delete failed: ' + delResp.status, 'error'); return; }

@@ -320,7 +320,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.53</div>
+      <div class="app-pill">Session Registration &middot; v0.54</div>
     </div>
   </div>
 
@@ -518,11 +518,36 @@ function normalizeApa(raw) {
   return isNaN(num) ? '' : String(num);
 }
 
-function showScreen(id) {
+// Track current screen for history navigation
+var currentScreen = 'screenAuth';
+
+function showScreen(id, skipPush) {
   ['screenAuth', 'screenBrowse', 'screenDash', 'screenFormats', 'screenRegForm', 'screenView'].forEach(function(s) {
     document.getElementById(s).classList.toggle('hidden', s !== id);
   });
+  // Push to browser history so the back button navigates within the app
+  if (!skipPush && id !== currentScreen) {
+    history.pushState({ screen: id }, '');
+  }
+  currentScreen = id;
 }
+
+// Browser back button → go to previous app screen
+window.addEventListener('popstate', function(e) {
+  if (e.state && e.state.screen) {
+    // If leaving the reg form via back button, check for unsaved changes
+    if (currentScreen === 'screenRegForm' && regInProgress && hasChanges()) {
+      // Re-push current state so back doesn't leave, then show cancel dialog
+      history.pushState({ screen: 'screenRegForm' }, '');
+      showCancelDialog();
+      return;
+    }
+    showScreen(e.state.screen, true);
+  } else {
+    // No state = initial page load entry; show auth or dash
+    showScreen(currentPlayer ? 'screenDash' : 'screenAuth', true);
+  }
+});
 
 function playerDisplayName(p) {
   var name = esc(p.firstName || p.first_name || '');

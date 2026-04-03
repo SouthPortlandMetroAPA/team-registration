@@ -195,7 +195,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.29</div>
+      <div class="app-pill">Session Registration &middot; v0.31</div>
     </div>
   </div>
 
@@ -227,10 +227,10 @@
   <div id="screenFormats" class="hidden">
     <div class="greeting" style="margin-bottom:16px">Choose a format</div>
     <div class="format-grid">
-      <div class="format-btn" onclick="startRegistration('DJ')">Double Jeopardy</div>
+      <div class="format-btn" onclick="startRegistration('Double Jeopardy')">Double Jeopardy</div>
       <div class="format-btn" onclick="startRegistration('8-Ball Open')">8-Ball Open</div>
       <div class="format-btn" onclick="startRegistration('9-Ball Open')">9-Ball Open</div>
-      <div class="format-btn" onclick="startRegistration('DJ Doubles')">DJ Doubles</div>
+      <div class="format-btn" onclick="startRegistration('Double Jeopardy Doubles')">DJ Doubles</div>
       <div class="format-btn" onclick="startRegistration('8-Ball Doubles')">8-Ball Doubles</div>
       <div class="format-btn" onclick="startRegistration('9-Ball Doubles')">9-Ball Doubles</div>
       <div class="format-btn" onclick="startRegistration('Masters')">Masters</div>
@@ -470,7 +470,7 @@ function renderDashboard() {
 // ════════════════════════════════════════════════════════════════════
 function startRegistration(format) {
   selectedFormat = format;
-  isDJ = (format === 'DJ');
+  isDJ = (format === 'Double Jeopardy');
   roster = [];
   regInProgress = true;
   renderRegForm();
@@ -481,7 +481,7 @@ function startRegistration(format) {
 // Registration Form Rendering
 // ════════════════════════════════════════════════════════════════════
 function renderRegForm() {
-  var html = '<h2 style="margin:0 0 16px">Register: ' + esc(selectedFormat === 'DJ' ? 'Double Jeopardy' : selectedFormat) + '</h2>';
+  var html = '<h2 style="margin:0 0 16px">Register: ' + esc(selectedFormat) + '</h2>';
 
   // Team name
   html += '<div class="form-group"><label>Team Name</label>';
@@ -503,7 +503,7 @@ function renderRegForm() {
     html += '<option value="' + esc(val) + '"' + sel + '>' + esc(label) + '</option>';
   }
   if (matchingDivs.length === 0) {
-    html += '<option value="" disabled>No divisions for this format — add in Admin</option>';
+    html += '<option value="" disabled>No divisions available</option>';
   }
   html += '</select></div>';
 

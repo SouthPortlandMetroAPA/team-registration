@@ -297,7 +297,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.44</div>
+      <div class="app-pill">Session Registration &middot; v0.45</div>
     </div>
   </div>
 
@@ -778,19 +778,7 @@ async function renderDashboard() {
       // Find division info
       var div = cachedDivisions.find(function(d) { return d.id === reg.division_id; });
 
-      html += '<div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 16px;margin-bottom:8px">';
-      html += '<div style="font-weight:700;font-size:1rem">' + esc(reg.team_name) + '</div>';
-      html += '<div style="font-size:0.85rem;color:var(--muted)">' + esc(reg.format);
-      if (div) html += ' &middot; ' + esc(div.day) + ' ' + esc(div.time) + ' &middot; ' + esc(div.areas || '');
-      html += '</div>';
-      html += '<div style="font-size:0.8rem;color:var(--muted);margin-top:4px">';
-      for (var pl = 0; pl < players.length; pl++) {
-        if (pl > 0) html += ', ';
-        var roleTag = players[pl].role === 'Captain' ? ' ★' : players[pl].role === 'Co-Captain' ? ' ☆' : '';
-        html += esc(players[pl].player_name) + roleTag;
-      }
-      html += '</div>';
-      html += '</div>';
+      html += '<button onclick="editRegistration(' + reg.id + ')" style="display:block;width:100%;background:var(--card);border:1px solid var(--border);border-radius:999px;padding:10px 20px;margin-bottom:8px;font-size:0.95rem;font-weight:600;cursor:pointer;text-align:center;transition:all 0.15s;font-family:inherit">' + esc(reg.team_name) + '</button>';
     }
 
     document.getElementById('teamsArea').innerHTML = html;
@@ -807,6 +795,7 @@ function startRegistration(format) {
   currentConfig = FORMAT_CONFIG[format] || { min: 3, max: 8, hasCoCaptain: true, isDJ: false, ball: null, accent: null };
   isDJ = currentConfig.isDJ;
   roster = [];
+  editingRegId = null;
   regInProgress = true;
   renderRegForm();
   showScreen('screenRegForm');
@@ -1430,6 +1419,7 @@ function doCancelReg() {
   // Restore the OK button for future toasts
   document.getElementById('toastOverlay').querySelector('.spm-btn-primary').style.display = '';
   regInProgress = false;
+  editingRegId = null;
   roster = [];
   showScreen('screenDash');
 }
@@ -1442,6 +1432,75 @@ window.addEventListener('beforeunload', function(e) {
   }
 });
 
+
+// ════════════════════════════════════════════════════════════════════
+// Edit existing registration
+// ════════════════════════════════════════════════════════════════════
+var editingRegId = null;
+
+async function editRegistration(regId) {
+  showLoading();
+  try {
+    var regResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?id=eq.' + regId, { headers: SB_HEADERS });
+    var regs = regResp.ok ? await regResp.json() : [];
+    if (regs.length === 0) { hideLoading(); showToast('Registration not found.', 'error'); return; }
+    var reg = regs[0];
+
+    var rosterResp = await fetch(SUPABASE_URL + '/rest/v1/registration_roster?registration_id=eq.' + regId + '&order=role', { headers: SB_HEADERS });
+    var rosterRows = rosterResp.ok ? await rosterResp.json() : [];
+
+    editingRegId = regId;
+    selectedFormat = reg.format;
+    currentConfig = FORMAT_CONFIG[reg.format] || { min: 3, max: 8, hasCoCaptain: true, isDJ: false, ball: null, accent: null };
+    isDJ = currentConfig.isDJ;
+    regInProgress = true;
+
+    // Build roster from DB
+    roster = [];
+    var playerMap = {};
+    for (var i = 0; i < rosterRows.length; i++) {
+      var rr = rosterRows[i];
+      var mn = rr.member_number;
+      if (!playerMap[mn]) {
+        var parts = (rr.player_name || '').split(' ');
+        playerMap[mn] = {
+          memberNumber: mn,
+          firstName: parts[0] || '',
+          nickname: '',
+          lastName: parts.slice(1).join(' ') || ''
+        };
+        if (isDJ) {
+          playerMap[mn].onRoster8 = false; playerMap[mn].onRoster9 = false;
+          playerMap[mn].role8 = 'Player'; playerMap[mn].role9 = 'Player';
+        } else {
+          playerMap[mn].role = 'Player';
+        }
+      }
+      if (isDJ) {
+        if (rr.format_side === '8') { playerMap[mn].onRoster8 = rr.on_roster !== false; playerMap[mn].role8 = rr.role; }
+        else if (rr.format_side === '9') { playerMap[mn].onRoster9 = rr.on_roster !== false; playerMap[mn].role9 = rr.role; }
+      } else {
+        playerMap[mn].role = rr.role;
+      }
+    }
+    roster = Object.values(playerMap);
+
+    hideLoading();
+    renderRegForm();
+
+    // Pre-fill after render
+    setTimeout(function() {
+      var el = document.getElementById('regTeamName'); if (el) el.value = reg.team_name;
+      var dv = document.getElementById('regDivision'); if (dv) dv.value = String(reg.division_id || '');
+      var ho = document.getElementById('regHost'); if (ho) ho.value = reg.host_location || '';
+    }, 0);
+
+    showScreen('screenRegForm');
+  } catch (e) {
+    hideLoading();
+    showToast('Error: ' + e.message, 'error');
+  }
+}
 
 async function submitRegistration() {
   var teamName = document.getElementById('regTeamName').value.trim();
@@ -1484,27 +1543,43 @@ async function submitRegistration() {
       writeHeaders['Authorization'] = 'Bearer ' + SERVICE_KEY;
     }
 
-    // Insert registration
-    var regResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations', {
-      method: 'POST', headers: writeHeaders,
-      body: JSON.stringify({
-        team_name: teamName,
-        division_id: parseInt(divisionId, 10),
-        format: selectedFormat,
-        host_location: hostLocation,
-        submitted_by: currentPlayer.member_number
-      })
-    });
+    var regId;
 
-    if (!regResp.ok) {
-      var err = await regResp.text();
-      hideLoading();
-      showToast('Registration failed: ' + err, 'error');
-      return;
+    if (editingRegId) {
+      // Update existing registration
+      var updResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?id=eq.' + editingRegId, {
+        method: 'PATCH', headers: writeHeaders,
+        body: JSON.stringify({
+          team_name: teamName,
+          division_id: parseInt(divisionId, 10),
+          format: selectedFormat,
+          host_location: hostLocation
+        })
+      });
+      if (!updResp.ok) { hideLoading(); showToast('Update failed: ' + await updResp.text(), 'error'); return; }
+      regId = editingRegId;
+
+      // Delete old roster entries (CASCADE would handle this but let's be explicit)
+      await fetch(SUPABASE_URL + '/rest/v1/registration_roster?registration_id=eq.' + regId, {
+        method: 'DELETE', headers: writeHeaders
+      });
+    } else {
+      // Insert new registration
+      var regResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations', {
+        method: 'POST', headers: writeHeaders,
+        body: JSON.stringify({
+          team_name: teamName,
+          division_id: parseInt(divisionId, 10),
+          format: selectedFormat,
+          host_location: hostLocation,
+          submitted_by: currentPlayer.member_number
+        })
+      });
+
+      if (!regResp.ok) { hideLoading(); showToast('Registration failed: ' + await regResp.text(), 'error'); return; }
+      var regData = await regResp.json();
+      regId = regData[0].id;
     }
-
-    var regData = await regResp.json();
-    var regId = regData[0].id;
 
     // Build roster entries
     var rosterRows = [];
@@ -1535,7 +1610,9 @@ async function submitRegistration() {
 
     hideLoading();
     regInProgress = false;
-    showToast('Registration submitted!', 'success');
+    var wasEdit = !!editingRegId;
+    editingRegId = null;
+    showToast(wasEdit ? 'Registration updated!' : 'Registration submitted!', 'success');
     setTimeout(function() { hideToast(); showScreen('screenDash'); }, 2000);
 
   } catch (e) {

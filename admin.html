@@ -173,11 +173,14 @@ function previewImport() {
   // Parse headers (tab-separated)
   parsedHeaders = lines[0].split('\t').map(function(h) { return h.trim(); });
 
-  // Map headers to columns
+  // Map headers to columns + find member number index
   var mapped = 0;
+  var memberIdx = -1;
   for (var i = 0; i < parsedHeaders.length; i++) {
     if (COLUMN_MAP[parsedHeaders[i].toLowerCase()]) mapped++;
+    if (parsedHeaders[i].toLowerCase() === 'member number') memberIdx = i;
   }
+  if (memberIdx === -1) { setStatus('No "Member Number" column found in headers.', 'error'); return; }
 
   // Parse data rows
   parsedRows = [];
@@ -188,8 +191,17 @@ function previewImport() {
     parsedRows.push(cells);
   }
 
-  // Show preview table (first 5 rows)
-  var html = '<p style="font-size:0.85rem;margin-top:12px"><strong>' + parsedRows.length + '</strong> rows, <strong>' + mapped + '/' + parsedHeaders.length + '</strong> columns mapped</p>';
+  // Count valid rows (8-digit APA number)
+  var validCount = 0, junkCount = 0;
+  for (var v = 0; v < parsedRows.length; v++) {
+    var vDigits = String(parsedRows[v][memberIdx] || '').replace(/\D/g, '');
+    if (vDigits.length === 8) validCount++; else junkCount++;
+  }
+
+  // Show preview table (first 5 valid rows)
+  var html = '<p style="font-size:0.85rem;margin-top:12px"><strong>' + validCount + '</strong> valid players, <strong>' + mapped + '/' + parsedHeaders.length + '</strong> columns mapped';
+  if (junkCount > 0) html += ' <span style="color:var(--spm-primary)">(' + junkCount + ' rows without 8-digit APA# will be skipped)</span>';
+  html += '</p>';
   html += '<div class="preview-wrap"><table class="preview-table"><thead><tr>';
   for (var h = 0; h < parsedHeaders.length; h++) {
     var isMapped = !!COLUMN_MAP[parsedHeaders[h].toLowerCase()];
@@ -236,9 +248,13 @@ async function executeImport() {
   var playerRows = [];
   var seenMembers = {};
 
+  var skipped = 0;
   for (var r = 0; r < parsedRows.length; r++) {
     var cells = parsedRows[r];
-    var rawMember = normalizeApa(cells[memberIdx]);
+    // Only accept rows with a valid 8-digit APA number — skip junk rows
+    var rawDigits = String(cells[memberIdx] || '').replace(/\D/g, '');
+    if (rawDigits.length !== 8) { skipped++; continue; }
+    var rawMember = normalizeApa(rawDigits);
     if (!rawMember || seenMembers[rawMember]) continue;
     seenMembers[rawMember] = true;
 
@@ -312,7 +328,7 @@ async function executeImport() {
       }
     }
 
-    setStatus('Imported ' + total + ' players across ' + (tables.length + 1) + ' tables.', 'success');
+    setStatus('Imported ' + total + ' players across ' + (tables.length + 1) + ' tables.' + (skipped ? ' Skipped ' + skipped + ' invalid rows.' : ''), 'success');
     loadStats();
   } catch (e) {
     setStatus('Network error: ' + e.message, 'error');

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+  <defs>
+    <radialGradient id="g9" cx="40%" cy="35%" r="55%">
+      <stop offset="0%" stop-color="#fde047"/>
+      <stop offset="40%" stop-color="#f5c518"/>
+      <stop offset="100%" stop-color="#c9a000"/>
+    </radialGradient>
+    <radialGradient id="shine9" cx="32%" cy="28%" r="25%">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.5)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0)"/>
+    </radialGradient>
+  </defs>
+  <!-- White base (stripe top and bottom) -->
+  <circle cx="100" cy="100" r="95" fill="#f0f0f0"/>
+  <!-- Yellow stripe band -->
+  <clipPath id="band">
+    <circle cx="100" cy="100" r="95"/>
+  </clipPath>
+  <rect x="0" y="55" width="200" height="90" fill="url(#g9)" clip-path="url(#band)"/>
+  <!-- Shine overlay -->
+  <circle cx="100" cy="100" r="95" fill="url(#shine9)"/>
+  <!-- White circle with number -->
+  <circle cx="100" cy="92" r="32" fill="#fff"/>
+  <circle cx="100" cy="92" r="30" fill="#fff" stroke="#e0e0e0" stroke-width="0.5"/>
+  <text x="100" y="103" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="42" font-weight="900" fill="#1a1a1a">9</text>
+</svg>

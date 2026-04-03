@@ -81,15 +81,7 @@
 
     /* ── Ball Headers ─────────────────────────────────────────────── */
     .ball-header { text-align: center; margin-bottom: 12px; }
-    .ball { display: inline-flex; align-items: center; justify-content: center;
-      width: 48px; height: 48px; border-radius: 50%; font-weight: 900; font-size: 1.2rem; }
-    .ball-8 { background: #1a1a1a; color: #fff; }
-    .ball-9 { background: #f5c518; color: #1a1a1a; position: relative; }
-    .ball-9::before {
-      content: ''; position: absolute; top: 12px; left: 4px; right: 4px; height: 24px;
-      background: #fff; border-radius: 50%; z-index: 0;
-    }
-    .ball-9 span { position: relative; z-index: 1; }
+    .ball-img { width: 48px; height: 48px; }
     .ball-label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--muted); margin-top: 4px; }
 
     /* ── DJ Three-Column Layout: 8-ball | Players | 9-ball ─────── */
@@ -201,7 +193,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.9</div>
+      <div class="app-pill">Session Registration &middot; v0.10</div>
     </div>
   </div>
 
@@ -445,9 +437,9 @@ function renderDJRoster() {
 
   // Column headers: 8-ball | (empty center) | 9-ball
   html += '<div class="dj-col-header">';
-  html += '<div><div class="ball ball-8">8</div><span class="ball-label">8-Ball</span></div>';
+  html += '<div><img src="8ball.svg" class="ball-img" alt="8-Ball"><span class="ball-label">8-Ball</span></div>';
   html += '<div></div>';
-  html += '<div><div class="ball ball-9"><span>9</span></div><span class="ball-label">9-Ball</span></div>';
+  html += '<div><img src="9ball.svg" class="ball-img" alt="9-Ball"><span class="ball-label">9-Ball</span></div>';
   html += '</div>';
 
   // Player rows: 8-ball controls | player card | 9-ball controls

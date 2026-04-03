@@ -102,39 +102,63 @@
       padding: 10px 12px; position: relative; min-width: 0; text-align: center;
     }
 
-    /* Mobile: stacked card — name on top, 8-ball/9-ball controls below */
+    /* ── Mobile DJ: sleek player cards ──────────────────────────── */
     @media (max-width: 600px) {
       .dj-col-header { display: none; }
       .dj-player-row {
-        display: flex; flex-direction: column;
+        display: block;
         background: var(--card); border: 1px solid var(--border);
-        border-radius: 12px; padding: 12px; margin-bottom: 10px;
+        border-radius: 16px; padding: 14px 16px; margin-bottom: 10px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.05);
       }
       .dj-center {
-        order: -1; /* name goes first on mobile */
-        border: none; padding: 0; margin-bottom: 8px;
+        order: -1; border: none; padding: 0; margin-bottom: 10px;
         background: transparent; border-radius: 0;
+        display: flex; justify-content: space-between; align-items: flex-start;
       }
+      .dj-center .rp-remove { margin: 0; font-size: 0.7rem; }
       .dj-sides-mobile {
-        display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+        display: flex; gap: 8px;
       }
-      .dj-side {
-        flex-direction: column; padding: 0; gap: 4px;
+      .m-ball-col {
+        flex: 1; border-radius: 12px; padding: 8px; text-align: center;
       }
-      .dj-side-label {
-        display: flex; align-items: center; gap: 6px; font-size: 0.75rem;
-        font-weight: 700; color: var(--muted); margin-bottom: 2px;
+      .m-ball-col.col-8 { background: #f0f0f0; }
+      .m-ball-col.col-9 { background: #fef9e7; }
+      .m-ball-col.off { opacity: 0.35; }
+      .m-ball-top {
+        display: flex; align-items: center; justify-content: center; gap: 6px;
+        margin-bottom: 6px; cursor: pointer;
       }
-      .dj-side-label .ball-img { width: 20px; height: 20px; }
+      .m-ball-top img { width: 24px; height: 24px; }
+      .m-ball-status {
+        font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .m-ball-status.on { color: #28a745; }
+      .m-ball-status.off { color: #dc3545; }
+      .m-role-pills { display: flex; gap: 4px; justify-content: center; }
+      .m-role-pill {
+        border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px;
+        font-size: 0.65rem; font-weight: 700; cursor: pointer;
+        background: #fff; color: var(--muted); transition: all 0.1s;
+      }
+      .m-role-pill.active-c { background: var(--spm-accent); color: #fff; border-color: var(--spm-accent); }
+      .m-role-pill.active-cc { background: #6c757d; color: #fff; border-color: #6c757d; }
+      .dj-side { display: none; } /* hide desktop side controls */
       .dj-mobile-counts {
-        display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
-        text-align: center; margin-top: 4px;
+        display: flex; gap: 8px; justify-content: center; margin-top: 8px;
+      }
+      .dj-mobile-counts > div {
+        display: flex; align-items: center; gap: 4px;
+        font-size: 0.8rem; color: var(--muted);
       }
     }
     @media (min-width: 601px) {
       .dj-sides-mobile { display: contents; }
       .dj-side-label { display: none; }
       .dj-mobile-counts { display: none; }
+      .m-ball-col { display: none; }
     }
     .roster-col { min-width: 0; }
 
@@ -241,7 +265,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.34</div>
+      <div class="app-pill">Session Registration &middot; v0.35</div>
     </div>
   </div>
 
@@ -652,30 +676,55 @@ function renderDJPlayerRow(idx) {
   var p = roster[idx];
   var html = '<div class="dj-player-row">';
 
-  // Desktop: left side (8-ball) — hidden on mobile via .dj-sides-mobile
-  html += '<div class="dj-sides-mobile">';
-
-  // 8-ball side
+  // Desktop: 8-ball side (left column)
   html += '<div class="dj-side">';
-  html += '<div class="dj-side-label"><img src="8ball.svg" class="ball-img"> 8-Ball</div>';
   html += renderSideControls(idx, '8', p.onRoster8, p.role8);
   html += '</div>';
 
-  // 9-ball side (on desktop, this is the right column — on mobile, second column in grid)
+  // Center: player name card
+  html += '<div class="dj-center">';
+  html += '<div>';
+  html += '<div class="rp-name">' + esc(p.firstName) + ' ' + esc(p.lastName) + '</div>';
+  html += '<div class="rp-member">#' + esc(p.memberNumber) + '</div>';
+  html += '</div>';
+  html += '<button class="rp-remove" onclick="removePlayer(' + idx + ')">remove</button>';
+  html += '</div>';
+
+  // Desktop: 9-ball side (right column)
   html += '<div class="dj-side">';
-  html += '<div class="dj-side-label"><img src="9ball.svg" class="ball-img"> 9-Ball</div>';
   html += renderSideControls(idx, '9', p.onRoster9, p.role9);
   html += '</div>';
 
-  html += '</div>'; // end dj-sides-mobile
-
-  // Center: player name card
-  html += '<div class="dj-center">';
-  html += '<div class="rp-name">' + esc(p.firstName) + '</div>';
-  html += '<div class="rp-name">' + esc(p.lastName) + '</div>';
-  html += '<div class="rp-member">#' + esc(p.memberNumber) + '</div>';
-  html += '<button class="rp-remove" onclick="removePlayer(' + idx + ')">remove</button>';
+  // Mobile: two ball columns side by side
+  html += '<div class="dj-sides-mobile">';
+  html += renderMobileBallCol(idx, '8', p.onRoster8, p.role8);
+  html += renderMobileBallCol(idx, '9', p.onRoster9, p.role9);
   html += '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+function renderMobileBallCol(idx, col, onRoster, role) {
+  var cls = onRoster ? '' : ' off';
+  var ball = col === '8' ? '8ball.svg' : '9ball.svg';
+  var bgCls = col === '8' ? 'col-8' : 'col-9';
+
+  var html = '<div class="m-ball-col ' + bgCls + cls + '">';
+
+  // Ball + status — tap to toggle
+  html += '<div class="m-ball-top" onclick="toggleRoster(' + idx + ',\'' + col + '\')">';
+  html += '<img src="' + ball + '">';
+  html += '<span class="m-ball-status ' + (onRoster ? 'on' : 'off') + '">' + (onRoster ? 'ON' : 'OFF') + '</span>';
+  html += '</div>';
+
+  // Role pills (only if on roster)
+  if (onRoster) {
+    html += '<div class="m-role-pills">';
+    html += '<div class="m-role-pill' + (role === 'Captain' ? ' active-c' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Captain\')">Capt</div>';
+    html += '<div class="m-role-pill' + (role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Co-Captain\')">Co-C</div>';
+    html += '</div>';
+  }
 
   html += '</div>';
   return html;

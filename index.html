@@ -195,7 +195,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.21</div>
+      <div class="app-pill">Session Registration &middot; v0.22</div>
     </div>
   </div>
 
@@ -563,9 +563,10 @@ function renderDJPlayerRow(idx) {
   html += renderSideControls(idx, '8', p.onRoster8, p.role8);
   html += '</div>';
 
-  // Center: player card with name + remove
+  // Center: player card — first name, last name, APA# on separate lines
   html += '<div class="dj-center">';
-  html += '<div class="rp-name">' + playerDisplayName(p) + '</div>';
+  html += '<div class="rp-name">' + esc(p.firstName) + '</div>';
+  html += '<div class="rp-name">' + esc(p.lastName) + '</div>';
   html += '<div class="rp-member">#' + esc(p.memberNumber) + '</div>';
   html += '<button class="rp-remove" onclick="removePlayer(' + idx + ')">remove</button>';
   html += '</div>';
@@ -604,7 +605,8 @@ function renderSingleRoster() {
   for (var i = 0; i < roster.length; i++) {
     var p = roster[i];
     html += '<div class="rp-card">';
-    html += '<div class="rp-name">' + playerDisplayName(p) + '</div>';
+    html += '<div class="rp-name">' + esc(p.firstName) + '</div>';
+    html += '<div class="rp-name">' + esc(p.lastName) + '</div>';
     html += '<div class="rp-member">#' + esc(p.memberNumber) + '</div>';
     html += '<div class="rp-controls">';
     html += '<button class="rp-btn' + (p.role === 'Captain' ? ' active-c' : '') + '" onclick="setSingleRole(' + i + ',\'Captain\')">Captain</button>';

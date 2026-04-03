@@ -75,7 +75,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Player Data Management &middot; v0.6</div>
+      <div class="app-pill">Player Data Management &middot; v0.9</div>
     </div>
   </div>
 
@@ -204,7 +204,10 @@ function parseData() {
   var lines = raw.split('\n');
   if (lines.length < 2) { setStatus('Need at least a header row and one data row.', 'error'); return null; }
 
-  parsedHeaders = lines[0].split('\t').map(function(h) { return h.trim(); });
+  // Normalize headers: trim, collapse whitespace, strip non-ASCII whitespace
+  parsedHeaders = lines[0].split('\t').map(function(h) {
+    return h.replace(/[\u00A0\u2000-\u200B\uFEFF]/g, ' ').replace(/\s+/g, ' ').trim();
+  });
 
   var mapped = 0;
   parsedMemberIdx = -1;

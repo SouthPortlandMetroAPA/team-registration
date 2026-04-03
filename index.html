@@ -92,9 +92,22 @@
     .ball-9 span { position: relative; z-index: 1; }
     .ball-label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--muted); margin-top: 4px; }
 
-    /* ── Roster Columns (DJ) ──────────────────────────────────────── */
-    .roster-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    @media (max-width: 600px) { .roster-columns { grid-template-columns: 1fr; } }
+    /* ── DJ Three-Column Layout: 8-ball | Players | 9-ball ─────── */
+    .dj-roster { margin-top: 8px; }
+    .dj-player-row {
+      display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 0; align-items: start;
+      margin-bottom: 8px;
+    }
+    @media (max-width: 500px) { .dj-player-row { grid-template-columns: 80px 1fr 80px; } }
+    .dj-col-header {
+      display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 0; margin-bottom: 12px;
+      text-align: center;
+    }
+    .dj-side { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; }
+    .dj-center {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 10px 12px; position: relative; min-width: 0;
+    }
     .roster-col { min-width: 0; }
 
     /* ── Add Player ───────────────────────────────────────────────── */
@@ -188,7 +201,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.8</div>
+      <div class="app-pill">Session Registration &middot; v0.9</div>
     </div>
   </div>
 
@@ -428,23 +441,24 @@ function renderDJRoster() {
   var count8 = roster.filter(function(r) { return r.onRoster8; }).length;
   var count9 = roster.filter(function(r) { return r.onRoster9; }).length;
 
-  var html = '<div class="roster-columns">';
+  var html = '<div class="dj-roster">';
 
-  // 8-ball column
-  html += '<div class="roster-col">';
-  html += '<div class="ball-header"><div class="ball ball-8">8</div><span class="ball-label">8-Ball</span></div>';
-  for (var i = 0; i < roster.length; i++) {
-    html += renderDJPlayerCard(i, '8');
-  }
-  html += '<div class="roster-count' + (count8 >= MAX_ROSTER ? ' full' : '') + '">' + count8 + ' / ' + MAX_ROSTER + '</div>';
+  // Column headers: 8-ball | (empty center) | 9-ball
+  html += '<div class="dj-col-header">';
+  html += '<div><div class="ball ball-8">8</div><span class="ball-label">8-Ball</span></div>';
+  html += '<div></div>';
+  html += '<div><div class="ball ball-9"><span>9</span></div><span class="ball-label">9-Ball</span></div>';
   html += '</div>';
 
-  // 9-ball column
-  html += '<div class="roster-col">';
-  html += '<div class="ball-header"><div class="ball ball-9"><span>9</span></div><span class="ball-label">9-Ball</span></div>';
-  for (var j = 0; j < roster.length; j++) {
-    html += renderDJPlayerCard(j, '9');
+  // Player rows: 8-ball controls | player card | 9-ball controls
+  for (var i = 0; i < roster.length; i++) {
+    html += renderDJPlayerRow(i);
   }
+
+  // Counts
+  html += '<div class="dj-col-header" style="margin-top:4px">';
+  html += '<div class="roster-count' + (count8 >= MAX_ROSTER ? ' full' : '') + '">' + count8 + ' / ' + MAX_ROSTER + '</div>';
+  html += '<div></div>';
   html += '<div class="roster-count' + (count9 >= MAX_ROSTER ? ' full' : '') + '">' + count9 + ' / ' + MAX_ROSTER + '</div>';
   html += '</div>';
 
@@ -452,34 +466,40 @@ function renderDJRoster() {
   return html;
 }
 
-function renderDJPlayerCard(idx, col) {
+function renderDJPlayerRow(idx) {
   var p = roster[idx];
-  var onRoster = col === '8' ? p.onRoster8 : p.onRoster9;
-  var role = col === '8' ? p.role8 : p.role9;
-  var cls = onRoster ? '' : ' off-roster';
+  var html = '<div class="dj-player-row">';
 
-  var html = '<div class="rp-card' + cls + '">';
+  // Left: 8-ball controls
+  html += '<div class="dj-side">';
+  html += renderSideControls(idx, '8', p.onRoster8, p.role8);
+  html += '</div>';
+
+  // Center: player card with name + remove
+  html += '<div class="dj-center">';
   html += '<div class="rp-name">' + playerDisplayName(p) + '</div>';
   html += '<div class="rp-member">#' + esc(p.memberNumber) + '</div>';
+  html += '<button class="rp-remove" onclick="removePlayer(' + idx + ')" title="Remove">&times;</button>';
+  html += '</div>';
 
-  html += '<div class="rp-controls">';
-  // On/Off Roster toggle
+  // Right: 9-ball controls
+  html += '<div class="dj-side">';
+  html += renderSideControls(idx, '9', p.onRoster9, p.role9);
+  html += '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+function renderSideControls(idx, col, onRoster, role) {
+  var html = '';
   if (onRoster) {
     html += '<button class="rp-btn on-roster" onclick="toggleRoster(' + idx + ',\'' + col + '\')">On Roster</button>';
-    // Captain / Co-Captain
     html += '<button class="rp-btn' + (role === 'Captain' ? ' active-c' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Captain\')">C</button>';
     html += '<button class="rp-btn' + (role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Co-Captain\')">CC</button>';
   } else {
     html += '<button class="rp-btn off-roster" onclick="toggleRoster(' + idx + ',\'' + col + '\')">Off Roster</button>';
   }
-  html += '</div>';
-
-  // Remove button (only in 8-ball column to avoid double)
-  if (col === '8') {
-    html += '<button class="rp-remove" onclick="removePlayer(' + idx + ')" title="Remove">&times;</button>';
-  }
-
-  html += '</div>';
   return html;
 }
 

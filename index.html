@@ -370,7 +370,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.69</div>
+      <div class="app-pill">Session Registration &middot; v0.70</div>
     </div>
   </div>
 
@@ -442,6 +442,15 @@
   </div>
 </div>
 
+<!-- Update Overlay -->
+<div class="loading-modal" id="updateOverlay">
+  <div class="loading-modal-box">
+    <div class="loading-spinner"></div>
+    <div style="font-weight:700;font-size:1rem;margin-bottom:4px">Updating</div>
+    <div style="font-size:0.85rem;color:var(--muted)">Loading the latest version...</div>
+  </div>
+</div>
+
 <!-- Search Hint (first-time only) -->
 <div class="hint-overlay" id="hintOverlay">
   <div class="hint-box">
@@ -468,6 +477,50 @@
 </div>
 
 <script>
+// ════════════════════════════════════════════════════════════════════
+// Version Check — auto-reload if a newer version is deployed
+// ════════════════════════════════════════════════════════════════════
+var APP_VERSION = '0.70';
+
+(function checkVersion() {
+  fetch('version.txt?_=' + Date.now())
+    .then(function(r) { return r.ok ? r.text() : null; })
+    .then(function(remote) {
+      if (!remote) return;
+      remote = remote.trim();
+      if (remote === APP_VERSION) return;
+      // Newer version exists — show updating dialog and poll until deployed
+      showUpdateDialog();
+      pollForUpdate(remote);
+    })
+    .catch(function() { /* offline or error — skip */ });
+})();
+
+function showUpdateDialog() {
+  var el = document.getElementById('updateOverlay');
+  if (el) el.classList.add('active');
+}
+
+function pollForUpdate(targetVersion) {
+  // Hard-reload the page; if the HTML still has the old version, poll again
+  // We check by re-fetching index.html and looking for APP_VERSION in it
+  setTimeout(function() {
+    fetch('index.html?_=' + Date.now())
+      .then(function(r) { return r.ok ? r.text() : null; })
+      .then(function(html) {
+        if (!html) { pollForUpdate(targetVersion); return; }
+        // Check if the deployed HTML has the target version
+        if (html.indexOf("APP_VERSION = '" + targetVersion + "'") !== -1) {
+          location.reload(true);
+        } else {
+          // CDN hasn't propagated yet — retry in 3s
+          pollForUpdate(targetVersion);
+        }
+      })
+      .catch(function() { setTimeout(function() { pollForUpdate(targetVersion); }, 3000); });
+  }, 3000);
+}
+
 // ════════════════════════════════════════════════════════════════════
 // Config
 // ════════════════════════════════════════════════════════════════════

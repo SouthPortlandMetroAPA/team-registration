@@ -194,14 +194,15 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.13</div>
+      <div class="app-pill">Session Registration &middot; v0.14</div>
     </div>
   </div>
 
   <!-- ═══ Screen: Auth ═══ -->
   <div id="screenAuth">
-    <form class="lookup-bar" autocomplete="off" onsubmit="event.preventDefault();doLookup()">
-      <input class="lookup-input" id="authInput" type="text" placeholder="APA # or Email" aria-label="APA number or email address" inputmode="text">
+    <form class="lookup-bar" autocomplete="off" onsubmit="event.preventDefault();doLookup()" style="position:relative">
+      <input class="lookup-input" id="authInput" type="text" placeholder="APA # or Name or Email" aria-label="APA number, name, or email" inputmode="text" oninput="onAuthSearchInput()" onkeydown="onAuthSearchKeydown(event)">
+      <div class="ac-dropdown" id="authACDropdown" style="left:16px;right:16px"></div>
       <button class="lookup-btn" type="submit">FIND ME</button>
     </form>
     <div class="auth-error" id="authError"></div>
@@ -329,6 +330,93 @@ function playerDisplayName(p) {
 // ════════════════════════════════════════════════════════════════════
 // Auth / Lookup
 // ════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// Auth Autocomplete — same search on the FIND ME box
+// ════════════════════════════════════════════════════════════════════
+var authACTimer = null;
+var authACResults = [];
+var authACFocused = -1;
+
+function onAuthSearchInput() {
+  clearTimeout(authACTimer);
+  var val = document.getElementById('authInput').value.trim();
+  if (!val || val.length < 2) { closeAuthAC(); return; }
+  // Don't search if it looks like an email being typed
+  if (val.indexOf('@') !== -1) { closeAuthAC(); return; }
+  authACTimer = setTimeout(function() {
+    var cur = document.getElementById('authInput');
+    if (!cur || !cur.value.trim()) { closeAuthAC(); return; }
+    doAuthACSearch(cur.value.trim());
+  }, 250);
+}
+
+function onAuthSearchKeydown(e) {
+  var dd = document.getElementById('authACDropdown');
+  if (!dd || !dd.classList.contains('open')) return;
+  if (e.key === 'ArrowDown') { e.preventDefault(); authACFocused = Math.min(authACFocused + 1, authACResults.length - 1); renderAuthACHighlight(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); authACFocused = Math.max(authACFocused - 1, 0); renderAuthACHighlight(); }
+  else if (e.key === 'Enter' && authACFocused >= 0) { e.preventDefault(); selectAuthACItem(authACFocused); }
+  else if (e.key === 'Escape') { closeAuthAC(); }
+}
+
+async function doAuthACSearch(query) {
+  var isNum = /^\d+$/.test(query);
+  var filter;
+  if (isNum) {
+    filter = 'member_number=like.*' + encodeURIComponent(query) + '*';
+  } else {
+    var q = encodeURIComponent('%' + query + '%');
+    filter = 'or=(first_name.ilike.' + q + ',nickname.ilike.' + q + ',last_name.ilike.' + q + ')';
+  }
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/player_full?' + filter + '&limit=8&order=last_name,first_name', { headers: SB_HEADERS });
+    if (!resp.ok) return;
+    authACResults = await resp.json();
+    authACFocused = -1;
+    renderAuthACDropdown();
+  } catch (e) { /* silent */ }
+}
+
+function renderAuthACDropdown() {
+  var dd = document.getElementById('authACDropdown');
+  if (!dd) return;
+  if (authACResults.length === 0) { closeAuthAC(); return; }
+  var html = '';
+  for (var i = 0; i < authACResults.length; i++) {
+    var p = authACResults[i];
+    var cls = i === authACFocused ? ' focused' : '';
+    html += '<div class="ac-item' + cls + '" onmousedown="selectAuthACItem(' + i + ')">';
+    html += '<div class="ac-name">' + esc(p.first_name);
+    if (p.nickname) html += ' <span class="nick">"' + esc(p.nickname) + '"</span>';
+    html += ' ' + esc(p.last_name) + '</div>';
+    html += '<div class="ac-apa">APA #' + esc(p.member_number) + '</div>';
+    html += '</div>';
+  }
+  dd.innerHTML = html;
+  dd.classList.add('open');
+}
+
+function renderAuthACHighlight() {
+  var items = document.querySelectorAll('#authACDropdown .ac-item');
+  for (var i = 0; i < items.length; i++) items[i].classList.toggle('focused', i === authACFocused);
+}
+
+function selectAuthACItem(idx) {
+  var p = authACResults[idx];
+  if (!p) return;
+  closeAuthAC();
+  // Put the APA# in the input and trigger lookup
+  document.getElementById('authInput').value = p.member_number;
+  doLookup();
+}
+
+function closeAuthAC() {
+  var dd = document.getElementById('authACDropdown');
+  if (dd) { dd.classList.remove('open'); dd.innerHTML = ''; }
+  authACResults = [];
+  authACFocused = -1;
+}
+
 async function doLookup() {
   var raw = document.getElementById('authInput').value.trim();
   if (!raw) { document.getElementById('authError').textContent = 'Please enter your APA number or email.'; return; }
@@ -413,7 +501,7 @@ function renderRegForm() {
   } else {
     // Add player input above single-column roster
     html += '<div class="add-row">';
-    html += '<input type="text" id="addPlayerInput" placeholder="APA # or name" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">';
+    html += '<input type="text" id="addPlayerInput" placeholder="Enter a player" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">';
     html += '<button class="spm-btn spm-btn-primary" onclick="addPlayer()">Add</button>';
     html += '<div class="ac-dropdown" id="acDropdown"></div>';
     html += '</div>';
@@ -439,7 +527,7 @@ function renderDJRoster() {
   html += '<div class="dj-col-header">';
   html += '<div><img src="8ball.svg" class="ball-img" alt="8-Ball"><span class="ball-label">8-Ball</span></div>';
   html += '<div style="display:flex;align-items:center;padding:0 4px;position:relative">';
-  html += '<input type="text" id="addPlayerInput" placeholder="APA # or name" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)" style="width:100%;border:2px solid var(--border);border-radius:12px;padding:8px 10px;font-size:0.9rem;outline:none;min-height:44px">';
+  html += '<input type="text" id="addPlayerInput" placeholder="Enter a player" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)" style="width:100%;border:2px solid var(--border);border-radius:12px;padding:8px 10px;font-size:0.9rem;outline:none;min-height:44px">';
   html += '<div class="ac-dropdown" id="acDropdown"></div>';
   html += '</div>';
   html += '<div><img src="9ball.svg" class="ball-img" alt="9-Ball"><span class="ball-label">9-Ball</span></div>';
@@ -532,8 +620,13 @@ var acFocused = -1;
 function onSearchInput() {
   clearTimeout(acTimer);
   var val = document.getElementById('addPlayerInput').value.trim();
-  if (val.length < 2) { closeAC(); return; }
-  acTimer = setTimeout(function() { doACSearch(val); }, 250);
+  if (!val || val.length < 2) { closeAC(); return; }
+  acTimer = setTimeout(function() {
+    // Re-check in case input was cleared during debounce
+    var cur = document.getElementById('addPlayerInput');
+    if (!cur || !cur.value.trim()) { closeAC(); return; }
+    doACSearch(val);
+  }, 250);
 }
 
 function onSearchKeydown(e) {

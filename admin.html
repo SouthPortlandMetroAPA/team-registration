@@ -45,6 +45,28 @@
     .preview-wrap { overflow-x: auto; max-height: 300px; overflow-y: auto; }
 
     .hidden { display: none !important; }
+
+    /* ── Progress Modal ───────────────────────────────────────────── */
+    .progress-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center; z-index: 9999;
+    }
+    .progress-modal.active { display: flex; }
+    .progress-box {
+      background: #fff; border-radius: 16px; padding: 28px 32px;
+      text-align: center; box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+      min-width: 320px;
+    }
+    .progress-title { font-size: 1rem; font-weight: 700; margin-bottom: 12px; }
+    .progress-bar-wrap {
+      background: #e9ecef; border-radius: 8px; height: 12px;
+      overflow: hidden; margin-bottom: 8px;
+    }
+    .progress-bar-fill {
+      background: linear-gradient(135deg, var(--spm-primary), var(--spm-accent));
+      height: 100%; border-radius: 8px; width: 0%; transition: width 0.2s;
+    }
+    .progress-detail { font-size: 0.85rem; color: var(--muted); }
   </style>
 </head>
 <body>
@@ -84,6 +106,15 @@
   </div>
 
   <div class="spm-footer">South Portland Metro APA &middot; Team Registration Admin</div>
+</div>
+
+<!-- Progress Modal -->
+<div class="progress-modal" id="progressModal">
+  <div class="progress-box">
+    <div class="progress-title" id="progressTitle">Importing...</div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="progressBar"></div></div>
+    <div class="progress-detail" id="progressDetail"></div>
+  </div>
 </div>
 
 <script>
@@ -290,19 +321,38 @@ async function executeImport() {
     tableBatches[t] = Object.values(batches[t]);
   }
 
+  // Count total API calls for progress tracking
+  var total = playerRows.length;
+  var allTables = ['players'].concat(Object.keys(tableBatches));
+  var totalChunks = 0;
+  totalChunks += Math.ceil(playerRows.length / 500);
+  for (var tc = 0; tc < Object.keys(tableBatches).length; tc++) {
+    totalChunks += Math.ceil(tableBatches[Object.keys(tableBatches)[tc]].length / 500);
+  }
+  var completedChunks = 0;
+
+  showProgress('Importing ' + total + ' players...');
+
   try {
     // Step 1: Upsert players (identity table)
-    var total = playerRows.length;
-    setStatus('Upserting ' + total + ' players...', '');
-
-    // Batch in chunks of 500
     for (var i = 0; i < playerRows.length; i += 500) {
       var chunk = playerRows.slice(i, i + 500);
-      await fetch(SUPABASE_URL + '/rest/v1/players', {
+      completedChunks++;
+      var pct = Math.round((completedChunks / totalChunks) * 100);
+      updateProgress(pct, 'players: ' + Math.min(i + 500, playerRows.length) + ' / ' + playerRows.length);
+      await tick();
+
+      var resp0 = await fetch(SUPABASE_URL + '/rest/v1/players', {
         method: 'POST',
         headers: Object.assign(sbHeaders(true), { 'Prefer': 'resolution=merge-duplicates' }),
         body: JSON.stringify(chunk)
       });
+      if (!resp0.ok) {
+        hideProgress();
+        setStatus('Error on players: ' + await resp0.text(), 'error');
+        document.getElementById('importBtn').disabled = false;
+        return;
+      }
     }
 
     // Step 2: Upsert each fact table
@@ -310,16 +360,21 @@ async function executeImport() {
     for (var ti = 0; ti < tables.length; ti++) {
       var tableName = tables[ti];
       var rows = tableBatches[tableName];
-      setStatus('Upserting ' + tableName + ' (' + rows.length + ' rows)...', '');
 
       for (var j = 0; j < rows.length; j += 500) {
         var batch = rows.slice(j, j + 500);
+        completedChunks++;
+        var pct2 = Math.round((completedChunks / totalChunks) * 100);
+        updateProgress(pct2, tableName + ': ' + Math.min(j + 500, rows.length) + ' / ' + rows.length);
+        await tick();
+
         var resp = await fetch(SUPABASE_URL + '/rest/v1/' + tableName, {
           method: 'POST',
           headers: Object.assign(sbHeaders(true), { 'Prefer': 'resolution=merge-duplicates' }),
           body: JSON.stringify(batch)
         });
         if (!resp.ok) {
+          hideProgress();
           var err = await resp.text();
           setStatus('Error on ' + tableName + ': ' + err, 'error');
           document.getElementById('importBtn').disabled = false;
@@ -328,9 +383,13 @@ async function executeImport() {
       }
     }
 
-    setStatus('Imported ' + total + ' players across ' + (tables.length + 1) + ' tables.' + (skipped ? ' Skipped ' + skipped + ' invalid rows.' : ''), 'success');
+    updateProgress(100, 'Complete!');
+    await tick();
+    setTimeout(hideProgress, 1000);
+    setStatus('Imported ' + total + ' players across ' + allTables.length + ' tables.' + (skipped ? ' Skipped ' + skipped + ' invalid rows.' : ''), 'success');
     loadStats();
   } catch (e) {
+    hideProgress();
     setStatus('Network error: ' + e.message, 'error');
   }
 
@@ -356,6 +415,22 @@ async function loadStats() {
 }
 
 function esc(s) { var d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
+
+function showProgress(title) {
+  document.getElementById('progressTitle').textContent = title;
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('progressDetail').textContent = '';
+  document.getElementById('progressModal').classList.add('active');
+}
+function updateProgress(pct, detail) {
+  document.getElementById('progressBar').style.width = pct + '%';
+  document.getElementById('progressDetail').textContent = detail;
+}
+function hideProgress() {
+  document.getElementById('progressModal').classList.remove('active');
+}
+// Yield to browser for UI repaint
+function tick() { return new Promise(function(r) { setTimeout(r, 0); }); }
 function setStatus(msg, type) {
   var el = document.getElementById('importStatus');
   el.textContent = msg;

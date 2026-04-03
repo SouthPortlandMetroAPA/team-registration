@@ -75,7 +75,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Player Data Management &middot; v0.4</div>
+      <div class="app-pill">Player Data Management &middot; v0.5</div>
     </div>
   </div>
 
@@ -388,10 +388,18 @@ async function executeImport() {
       }
     }
 
+    // Step 3: Auto-lookup counties for zips that don't have one yet
+    updateProgress(95, 'Looking up counties by zip...');
+    await tick();
+    var countyCount = await lookupCounties();
+
     updateProgress(100, 'Complete!');
     await tick();
     setTimeout(hideProgress, 1000);
-    setStatus('Imported ' + total + ' players across ' + allTables.length + ' tables.' + (skipped ? ' Skipped ' + skipped + ' invalid rows.' : ''), 'success');
+    var msg = 'Imported ' + total + ' players across ' + allTables.length + ' tables.';
+    if (skipped) msg += ' Skipped ' + skipped + ' invalid rows.';
+    if (countyCount > 0) msg += ' Resolved ' + countyCount + ' counties.';
+    setStatus(msg, 'success');
     loadStats();
   } catch (e) {
     hideProgress();
@@ -399,6 +407,90 @@ async function executeImport() {
   }
 
   document.getElementById('importBtn').disabled = false;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// County Lookup — zip → lat/long → county (free APIs, no keys)
+// ════════════════════════════════════════════════════════════════════
+// 1. Fetch all player_address rows where county is empty but zip exists
+// 2. Build unique zip set
+// 3. For each zip: zippopotam.us → lat/long, then FCC → county
+// 4. Batch-update player_address with resolved counties
+
+async function lookupCounties() {
+  // Get addresses missing county
+  var resp = await fetch(SUPABASE_URL + '/rest/v1/player_address?county=eq.&zip=neq.&select=member_number,zip', {
+    headers: { 'apikey': SERVICE_KEY, 'Authorization': 'Bearer ' + SERVICE_KEY }
+  });
+  if (!resp.ok) return 0;
+  var rows = await resp.json();
+  if (rows.length === 0) return 0;
+
+  // Build unique zips → member_numbers mapping
+  var zipToMembers = {};
+  for (var i = 0; i < rows.length; i++) {
+    var zip = String(rows[i].zip || '').trim().substring(0, 5); // 5-digit zip
+    if (!zip || zip.length < 5) continue;
+    if (!zipToMembers[zip]) zipToMembers[zip] = [];
+    zipToMembers[zip].push(rows[i].member_number);
+  }
+
+  var zips = Object.keys(zipToMembers);
+  if (zips.length === 0) return 0;
+
+  // Lookup each unique zip → county (with caching)
+  var zipToCounty = {};
+  var resolved = 0;
+
+  for (var z = 0; z < zips.length; z++) {
+    var zip5 = zips[z];
+    updateProgress(95, 'County lookup: zip ' + (z + 1) + ' / ' + zips.length + ' (' + zip5 + ')');
+    await tick();
+
+    try {
+      // Step 1: zip → lat/long
+      var zResp = await fetch('https://api.zippopotam.us/us/' + zip5);
+      if (!zResp.ok) continue;
+      var zData = await zResp.json();
+      var lat = zData.places[0].latitude;
+      var lon = zData.places[0].longitude;
+
+      // Step 2: lat/long → county
+      var fResp = await fetch('https://geo.fcc.gov/api/census/area?lat=' + lat + '&lon=' + lon + '&format=json');
+      if (!fResp.ok) continue;
+      var fData = await fResp.json();
+      var county = fData.results && fData.results[0] ? fData.results[0].county_name : '';
+      if (!county) continue;
+
+      zipToCounty[zip5] = county;
+    } catch (e) {
+      // Skip failed lookups silently
+      continue;
+    }
+  }
+
+  // Batch-update counties in player_address
+  var updateCount = 0;
+  var countyZips = Object.keys(zipToCounty);
+  for (var c = 0; c < countyZips.length; c++) {
+    var cZip = countyZips[c];
+    var cCounty = zipToCounty[cZip];
+    var members = zipToMembers[cZip];
+
+    // Update all members with this zip
+    for (var m = 0; m < members.length; m += 100) {
+      var memberBatch = members.slice(m, m + 100);
+      var filter = 'member_number=in.(' + memberBatch.join(',') + ')';
+      var uResp = await fetch(SUPABASE_URL + '/rest/v1/player_address?' + filter, {
+        method: 'PATCH',
+        headers: Object.assign(sbHeaders(true), { 'Prefer': 'return=minimal' }),
+        body: JSON.stringify({ county: cCounty })
+      });
+      if (uResp.ok) updateCount += memberBatch.length;
+    }
+  }
+
+  return updateCount;
 }
 
 // ════════════════════════════════════════════════════════════════════

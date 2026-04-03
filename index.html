@@ -78,7 +78,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle" id="appName">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.4</div>
+      <div class="app-pill">Session Registration &middot; v0.5</div>
     </div>
   </div>
 
@@ -236,6 +236,7 @@ function renderPlayer(p) {
     html += '<div class="info-grid">';
     if (addr) html += infoItem('Address', addr);
     if (cityLine.trim()) html += infoItem('City/State', cityLine);
+    if (p.county) html += infoItem('County', p.county);
     html += '</div>';
   }
 

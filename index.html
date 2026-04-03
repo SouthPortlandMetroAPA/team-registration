@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Team Registration — South Portland Metro APA</title>
+  <meta name="description" content="Register your team for the next South Portland Metro APA league session.">
+  <link rel="stylesheet" href="https://southportlandmetroapa.github.io/shared/spm-base.css">
+  <style>
+    .spm-header .title { font-size: 1.5rem; font-weight: 900; line-height: 1.08; margin: 0; }
+    .spm-header .subtitle-group { display: inline-block; margin-top: 8px; }
+    .spm-header .subtitle { font-size: 1.6rem; font-weight: 400; font-style: italic; opacity: 0.95; margin: 0; }
+    .spm-header .app-pill {
+      display: inline-block; margin-top: 4px; padding: 3px 14px; border-radius: 999px;
+      font-size: 0.65rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+      background: rgba(255,255,255,0.2); color: #fff; border: 1.5px solid rgba(255,255,255,0.5);
+    }
+
+    /* ── Auth ─────────────────────────────────────────────────────── */
+    .auth-wrap { max-width: 480px; margin: 60px auto 0; text-align: center; }
+    .auth-wrap p { color: var(--muted); margin: 8px 0 20px; }
+    .auth-row { display: flex; gap: 8px; }
+    .auth-row input {
+      flex: 1; border: 2px solid var(--border); border-radius: 999px;
+      padding: 12px 20px; font-size: 1rem; outline: none; min-height: 48px;
+    }
+    .auth-row input:focus { border-color: var(--spm-accent); }
+    .auth-error { font-size: 0.85rem; color: var(--spm-primary); margin-top: 8px; }
+
+    /* ── Player Card ──────────────────────────────────────────────── */
+    .player-card { margin-top: 24px; }
+    .player-name { font-size: 1.3rem; font-weight: 700; margin-bottom: 4px; }
+    .player-nickname { font-style: italic; color: var(--muted); font-size: 1rem; }
+    .player-member { font-size: 0.85rem; color: var(--muted); margin-bottom: 16px; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
+    @media (max-width: 480px) { .info-grid { grid-template-columns: 1fr; } }
+    .info-item label { display: block; font-size: 0.7rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .info-item span { font-size: 0.95rem; }
+    .section-divider { border-top: 1px solid var(--border); margin: 16px 0; }
+
+    /* ── Loading ──────────────────────────────────────────────────── */
+    .loading-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center; z-index: 9999;
+    }
+    .loading-modal.active { display: flex; }
+    .loading-modal-box {
+      background: #fff; border-radius: 16px; padding: 32px 40px;
+      text-align: center; box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+    }
+    .loading-spinner {
+      width: 40px; height: 40px; border: 4px solid var(--border);
+      border-top-color: var(--spm-accent); border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Toast ─────────────────────────────────────────────────────── */
+    .toast-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center; z-index: 10000; padding: 20px;
+    }
+    .toast-overlay.active { display: flex; }
+    .toast-box {
+      background: #fff; border-radius: 16px; padding: 24px 28px;
+      text-align: center; box-shadow: 0 16px 40px rgba(0,0,0,0.35); max-width: 360px; width: 100%;
+    }
+    .toast-icon { font-size: 2.5rem; margin-bottom: 8px; }
+    .toast-icon.error { color: var(--spm-primary); }
+    .toast-msg { font-size: 0.95rem; font-weight: 500; margin-bottom: 16px; line-height: 1.4; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div class="spm-page">
+  <div class="spm-header">
+    <h1 class="title">South Portland Metro APA</h1>
+    <div class="subtitle-group">
+      <div class="subtitle" id="appName">Team Registration</div>
+      <div class="app-pill">Session Registration</div>
+    </div>
+  </div>
+
+  <!-- ═══ Auth Screen ═══ -->
+  <div id="screenAuth">
+    <div class="auth-wrap">
+      <div class="spm-card">
+        <h2 style="margin:0 0 4px">Find Your Account</h2>
+        <p>Enter your APA number or email address.</p>
+        <div class="auth-row">
+          <input type="text" id="authInput" placeholder="APA # or email"
+                 onkeydown="if(event.key==='Enter')doLookup()">
+          <button class="spm-btn spm-btn-primary" onclick="doLookup()">Look Up</button>
+        </div>
+        <div class="auth-error" id="authError"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Player Screen ═══ -->
+  <div id="screenPlayer" class="hidden">
+    <div class="spm-card player-card" id="playerCard"></div>
+    <div style="text-align:center;margin-top:16px">
+      <button class="spm-btn spm-btn-secondary" onclick="showAuth()">Look Up Another</button>
+    </div>
+  </div>
+
+  <div class="spm-footer">South Portland Metro APA</div>
+</div>
+
+<!-- Loading Modal -->
+<div class="loading-modal" id="loadingModal">
+  <div class="loading-modal-box">
+    <div class="loading-spinner"></div>
+    <div>Looking up...</div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-overlay" id="toastOverlay">
+  <div class="toast-box">
+    <div class="toast-icon" id="toastIcon"></div>
+    <div class="toast-msg" id="toastMsg"></div>
+    <button class="spm-btn spm-btn-primary" onclick="hideToast()">OK</button>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════
+var SUPABASE_URL = 'https://dqzbekoaysgaiqljueac.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxemJla29heXNnYWlxbGp1ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNzA5NzgsImV4cCI6MjA5MDc0Njk3OH0.cCdGxZ4zEFzU_r6lWSDeoNWG67Q4MSYCAtpds035dfU';
+
+function esc(s) { var d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
+function showLoading() { document.getElementById('loadingModal').classList.add('active'); }
+function hideLoading() { document.getElementById('loadingModal').classList.remove('active'); }
+function showToast(msg, type) {
+  document.getElementById('toastIcon').innerHTML = type === 'error' ? '&#10007;' : '&#9888;';
+  document.getElementById('toastIcon').className = 'toast-icon ' + (type || 'error');
+  document.getElementById('toastMsg').textContent = msg;
+  document.getElementById('toastOverlay').classList.add('active');
+}
+function hideToast() { document.getElementById('toastOverlay').classList.remove('active'); }
+
+function showAuth() {
+  document.getElementById('screenAuth').classList.remove('hidden');
+  document.getElementById('screenPlayer').classList.add('hidden');
+  document.getElementById('authError').textContent = '';
+  document.getElementById('authInput').value = '';
+  document.getElementById('authInput').focus();
+}
+
+function normalizeApa(raw) {
+  var digits = String(raw || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length === 8 && digits.indexOf('972') === 0) {
+    var local = parseInt(digits.substring(3), 10);
+    return isNaN(local) ? '' : String(local);
+  }
+  var num = parseInt(digits, 10);
+  return isNaN(num) ? '' : String(num);
+}
+
+async function doLookup() {
+  var raw = document.getElementById('authInput').value.trim();
+  if (!raw) { document.getElementById('authError').textContent = 'Please enter your APA number or email.'; return; }
+
+  document.getElementById('authError').textContent = '';
+  showLoading();
+
+  try {
+    var isEmail = raw.indexOf('@') !== -1;
+    var query;
+    if (isEmail) {
+      var normalized = raw.replace(/\s/g, '').toLowerCase();
+      query = 'email=eq.' + encodeURIComponent(normalized);
+    } else {
+      var apa = normalizeApa(raw);
+      if (!apa) { hideLoading(); document.getElementById('authError').textContent = 'Invalid APA number.'; return; }
+      query = 'member_number=eq.' + encodeURIComponent(apa);
+    }
+
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/player_full?' + query, {
+      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
+    });
+
+    if (!resp.ok) throw new Error('Server error: ' + resp.status);
+
+    var data = await resp.json();
+    hideLoading();
+
+    if (!data || data.length === 0) {
+      document.getElementById('authError').textContent = 'No player found. Check your APA number or email.';
+      return;
+    }
+
+    renderPlayer(data[0]);
+  } catch (e) {
+    hideLoading();
+    showToast('Network error: ' + e.message, 'error');
+  }
+}
+
+function renderPlayer(p) {
+  var html = '';
+
+  // Name + member number
+  html += '<div class="player-name">' + esc(p.first_name) + ' ' + esc(p.last_name) + '</div>';
+  if (p.nickname) html += '<div class="player-nickname">"' + esc(p.nickname) + '"</div>';
+  html += '<div class="player-member">APA #' + esc(p.member_number) + '</div>';
+
+  // Contact info
+  html += '<div class="info-grid">';
+  if (p.email) html += infoItem('Email', p.email);
+  if (p.cell_phone) html += infoItem('Cell', p.cell_phone);
+  if (p.home_phone) html += infoItem('Home', p.home_phone);
+  if (p.work_phone) html += infoItem('Work', p.work_phone);
+  if (p.alt_phone) html += infoItem('Alt Phone', p.alt_phone);
+  html += '</div>';
+
+  // Skill levels
+  if (p.skill_level_8 || p.skill_level_9) {
+    html += '<div class="section-divider"></div>';
+    html += '<div class="info-grid">';
+    if (p.skill_level_8) html += infoItem('8-Ball SL', p.skill_level_8);
+    if (p.skill_level_9) html += infoItem('9-Ball SL', p.skill_level_9);
+    if (p.gender) html += infoItem('Gender', p.gender);
+    html += '</div>';
+  }
+
+  // Address
+  if (p.address_1 || p.city) {
+    html += '<div class="section-divider"></div>';
+    var addr = [p.address_1, p.address_2].filter(Boolean).join(', ');
+    var cityLine = [p.city, p.state].filter(Boolean).join(', ') + (p.zip ? ' ' + p.zip : '');
+    html += '<div class="info-grid">';
+    if (addr) html += infoItem('Address', addr);
+    if (cityLine.trim()) html += infoItem('City/State', cityLine);
+    html += '</div>';
+  }
+
+  // Membership
+  if (p.member_status || p.period_joined || p.member_type) {
+    html += '<div class="section-divider"></div>';
+    html += '<div class="info-grid">';
+    if (p.member_status) html += infoItem('Status', p.member_status);
+    if (p.member_type) html += infoItem('Type', p.member_type);
+    if (p.period_joined) html += infoItem('Joined', p.period_joined);
+    if (p.date_started) html += infoItem('Started', p.date_started);
+    if (p.last_played_8) html += infoItem('Last 8-Ball', p.last_played_8);
+    if (p.last_played_9) html += infoItem('Last 9-Ball', p.last_played_9);
+    html += '</div>';
+  }
+
+  document.getElementById('playerCard').innerHTML = html;
+  document.getElementById('screenAuth').classList.add('hidden');
+  document.getElementById('screenPlayer').classList.remove('hidden');
+}
+
+function infoItem(label, value) {
+  return '<div class="info-item"><label>' + esc(label) + '</label><span>' + esc(value) + '</span></div>';
+}
+</script>
+</body>
+</html>

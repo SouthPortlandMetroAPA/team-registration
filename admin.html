@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Team Registration Admin — South Portland Metro APA</title>
+  <link rel="stylesheet" href="https://southportlandmetroapa.github.io/shared/spm-base.css">
+  <style>
+    .spm-header .title { font-size: 1.5rem; font-weight: 900; line-height: 1.08; margin: 0; }
+    .spm-header .subtitle-group { display: inline-block; margin-top: 8px; }
+    .spm-header .subtitle { font-size: 1.6rem; font-weight: 400; font-style: italic; opacity: 0.95; margin: 0; }
+    .spm-header .app-pill {
+      display: inline-block; margin-top: 4px; padding: 3px 14px; border-radius: 999px;
+      font-size: 0.65rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+      background: rgba(255,255,255,0.2); color: #fff; border: 1.5px solid rgba(255,255,255,0.5);
+    }
+
+    /* ── Import Area ──────────────────────────────────────────────── */
+    .import-section { margin-bottom: 24px; }
+    .import-section h3 { margin: 0 0 8px; }
+    .import-section p { font-size: 0.85rem; color: var(--muted); margin: 0 0 8px; }
+    .import-textarea {
+      width: 100%; min-height: 200px; border: 2px solid var(--border); border-radius: 12px;
+      padding: 12px; font-family: monospace; font-size: 0.8rem; resize: vertical;
+    }
+    .import-textarea:focus { border-color: var(--spm-accent); outline: none; }
+    .import-actions { display: flex; gap: 8px; margin-top: 12px; align-items: center; }
+    .import-status { font-size: 0.85rem; color: var(--muted); margin-left: 8px; }
+    .import-status.success { color: #28a745; }
+    .import-status.error { color: var(--spm-primary); }
+
+    /* ── Stats ─────────────────────────────────────────────────────── */
+    .stats-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    .stat-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px 16px; text-align: center; flex: 1; min-width: 100px;
+    }
+    .stat-card .num { font-size: 1.5rem; font-weight: 700; color: var(--spm-accent); }
+    .stat-card .label { font-size: 0.75rem; color: var(--muted); }
+
+    /* ── Column Preview ───────────────────────────────────────────── */
+    .preview-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin-top: 12px; }
+    .preview-table th { background: #f8f9fa; padding: 4px 6px; text-align: left; font-weight: 600; border-bottom: 2px solid var(--border); white-space: nowrap; }
+    .preview-table td { padding: 4px 6px; border-bottom: 1px solid #f0f0f0; white-space: nowrap; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+    .preview-wrap { overflow-x: auto; max-height: 300px; overflow-y: auto; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+<div class="spm-page">
+  <div class="spm-header">
+    <h1 class="title">South Portland Metro APA</h1>
+    <div class="subtitle-group">
+      <div class="subtitle">Team Registration Admin</div>
+      <div class="app-pill">Player Data Management</div>
+    </div>
+  </div>
+
+  <!-- ═══ Stats ═══ -->
+  <div class="stats-row">
+    <div class="stat-card"><div class="num" id="statTotal">—</div><div class="label">Total Players</div></div>
+    <div class="stat-card"><div class="num" id="statWithEmail">—</div><div class="label">With Email</div></div>
+    <div class="stat-card"><div class="num" id="statWithSkill">—</div><div class="label">With Skill Level</div></div>
+  </div>
+
+  <!-- ═══ Import ═══ -->
+  <div class="spm-card import-section">
+    <h3>Import Player Data</h3>
+    <p>Paste tab-separated data from the spreadsheet. First row must be headers. Supported columns:<br>
+      <strong>Member Number</strong>, First Name, Nickname, Last Name, Email Address, Cell Phone, Home Phone,
+      Work Phone, Alt Phone, Gender, 8-Ball Skill Level, 9-Ball Skill Level, Address 1, Address 2,
+      City, State, Zip, Membership Revoked, Membership Promotion, Period Joined, Referred By,
+      Date Marked Paid, Past Due, Deceased, Member Type, Date Started, Last Date Played 8-Ball,
+      Last Date Played 9-Ball, Member Status
+    </p>
+    <textarea class="import-textarea" id="importData" placeholder="Paste tab-separated data here..."></textarea>
+    <div id="previewArea"></div>
+    <div class="import-actions">
+      <button class="spm-btn spm-btn-secondary" onclick="previewImport()">Preview</button>
+      <button class="spm-btn spm-btn-primary" id="importBtn" onclick="executeImport()" disabled>Import</button>
+      <span class="import-status" id="importStatus"></span>
+    </div>
+  </div>
+
+  <div class="spm-footer">South Portland Metro APA &middot; Team Registration Admin</div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════
+// Config — service_role key for admin writes
+// ════════════════════════════════════════════════════════════════════
+var SUPABASE_URL = 'https://dqzbekoaysgaiqljueac.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxemJla29heXNnYWlxbGp1ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNzA5NzgsImV4cCI6MjA5MDc0Njk3OH0.cCdGxZ4zEFzU_r6lWSDeoNWG67Q4MSYCAtpds035dfU';
+
+// Service role key from URL param (admin only)
+var params = new URLSearchParams(window.location.search);
+var SERVICE_KEY = params.get('key') || '';
+
+function sbHeaders(useService) {
+  var key = useService ? SERVICE_KEY : SUPABASE_ANON_KEY;
+  return { 'apikey': key, 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+}
+
+function sbHeadersReturn(useService) {
+  var h = sbHeaders(useService);
+  h['Prefer'] = 'return=representation,resolution=merge-duplicates';
+  return h;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// APA Number Normalization
+// ════════════════════════════════════════════════════════════════════
+function normalizeApa(raw) {
+  var digits = String(raw || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.length === 8 && digits.indexOf('972') === 0) {
+    var local = parseInt(digits.substring(3), 10);
+    return isNaN(local) ? '' : String(local);
+  }
+  var num = parseInt(digits, 10);
+  return isNaN(num) ? '' : String(num);
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Column Mapping — header name → { table, column }
+// ════════════════════════════════════════════════════════════════════
+var COLUMN_MAP = {
+  'member number':           { table: 'players',           col: 'member_number' },
+  'first name':              { table: 'player_names',      col: 'first_name' },
+  'nickname':                { table: 'player_names',      col: 'nickname' },
+  'last name':               { table: 'player_names',      col: 'last_name' },
+  'email address':           { table: 'player_contacts',   col: 'email' },
+  'cell phone':              { table: 'player_contacts',   col: 'cell_phone' },
+  'home phone':              { table: 'player_contacts',   col: 'home_phone' },
+  'work phone':              { table: 'player_contacts',   col: 'work_phone' },
+  'alt phone':               { table: 'player_contacts',   col: 'alt_phone' },
+  'gender':                  { table: 'player_gender',     col: 'gender' },
+  '8-ball skill level':      { table: 'player_skills',     col: 'skill_level_8' },
+  '9-ball skill level':      { table: 'player_skills',     col: 'skill_level_9' },
+  'address 1':               { table: 'player_address',    col: 'address_1' },
+  'address 2':               { table: 'player_address',    col: 'address_2' },
+  'city':                    { table: 'player_address',    col: 'city' },
+  'state':                   { table: 'player_address',    col: 'state' },
+  'zip':                     { table: 'player_address',    col: 'zip' },
+  'membership revoked':      { table: 'player_membership', col: 'membership_revoked' },
+  'membership promotion':    { table: 'player_membership', col: 'membership_promotion' },
+  'period joined':           { table: 'player_membership', col: 'period_joined' },
+  'referred by':             { table: 'player_membership', col: 'referred_by' },
+  'date marked paid':        { table: 'player_status',     col: 'date_marked_paid' },
+  'past due':                { table: 'player_status',     col: 'past_due' },
+  'deceased':                { table: 'player_status',     col: 'deceased' },
+  'member type':             { table: 'player_status',     col: 'member_type' },
+  'date started':            { table: 'player_status',     col: 'date_started' },
+  'last date played 8-ball': { table: 'player_status',     col: 'last_played_8' },
+  'last date played 9-ball': { table: 'player_status',     col: 'last_played_9' },
+  'member status':           { table: 'player_status',     col: 'member_status' }
+};
+
+// ════════════════════════════════════════════════════════════════════
+// Parse pasted data
+// ════════════════════════════════════════════════════════════════════
+var parsedRows = [];
+var parsedHeaders = [];
+
+function previewImport() {
+  var raw = document.getElementById('importData').value.trim();
+  if (!raw) { setStatus('Paste data first.', 'error'); return; }
+
+  var lines = raw.split('\n');
+  if (lines.length < 2) { setStatus('Need at least a header row and one data row.', 'error'); return; }
+
+  // Parse headers (tab-separated)
+  parsedHeaders = lines[0].split('\t').map(function(h) { return h.trim(); });
+
+  // Map headers to columns
+  var mapped = 0;
+  for (var i = 0; i < parsedHeaders.length; i++) {
+    if (COLUMN_MAP[parsedHeaders[i].toLowerCase()]) mapped++;
+  }
+
+  // Parse data rows
+  parsedRows = [];
+  for (var r = 1; r < lines.length; r++) {
+    var line = lines[r].trim();
+    if (!line) continue;
+    var cells = line.split('\t');
+    parsedRows.push(cells);
+  }
+
+  // Show preview table (first 5 rows)
+  var html = '<p style="font-size:0.85rem;margin-top:12px"><strong>' + parsedRows.length + '</strong> rows, <strong>' + mapped + '/' + parsedHeaders.length + '</strong> columns mapped</p>';
+  html += '<div class="preview-wrap"><table class="preview-table"><thead><tr>';
+  for (var h = 0; h < parsedHeaders.length; h++) {
+    var isMapped = !!COLUMN_MAP[parsedHeaders[h].toLowerCase()];
+    html += '<th style="' + (isMapped ? '' : 'color:var(--spm-primary)') + '">' + esc(parsedHeaders[h]) + '</th>';
+  }
+  html += '</tr></thead><tbody>';
+  var previewCount = Math.min(5, parsedRows.length);
+  for (var p = 0; p < previewCount; p++) {
+    html += '<tr>';
+    for (var c = 0; c < parsedHeaders.length; c++) {
+      html += '<td>' + esc(parsedRows[p][c] || '') + '</td>';
+    }
+    html += '</tr>';
+  }
+  if (parsedRows.length > 5) html += '<tr><td colspan="' + parsedHeaders.length + '" style="color:var(--muted)">... and ' + (parsedRows.length - 5) + ' more rows</td></tr>';
+  html += '</tbody></table></div>';
+
+  document.getElementById('previewArea').innerHTML = html;
+  document.getElementById('importBtn').disabled = false;
+  setStatus('Preview ready. Click Import to write to database.', '');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Execute Import — upsert into each table
+// ════════════════════════════════════════════════════════════════════
+async function executeImport() {
+  if (!SERVICE_KEY) { setStatus('Admin key required. Add ?key=... to URL.', 'error'); return; }
+  if (parsedRows.length === 0) { setStatus('No data to import.', 'error'); return; }
+
+  document.getElementById('importBtn').disabled = true;
+  setStatus('Importing ' + parsedRows.length + ' players...', '');
+
+  // Build per-table upsert batches
+  var batches = {};  // table → [{ member_number, col1, col2, ... }]
+  var memberIdx = -1;
+
+  // Find member number column
+  for (var h = 0; h < parsedHeaders.length; h++) {
+    if (parsedHeaders[h].toLowerCase() === 'member number') { memberIdx = h; break; }
+  }
+  if (memberIdx === -1) { setStatus('No "Member Number" column found in headers.', 'error'); return; }
+
+  // Collect unique member numbers for players table
+  var playerRows = [];
+  var seenMembers = {};
+
+  for (var r = 0; r < parsedRows.length; r++) {
+    var cells = parsedRows[r];
+    var rawMember = normalizeApa(cells[memberIdx]);
+    if (!rawMember || seenMembers[rawMember]) continue;
+    seenMembers[rawMember] = true;
+
+    playerRows.push({ member_number: rawMember });
+
+    // Build rows for each mapped table
+    for (var c = 0; c < parsedHeaders.length; c++) {
+      var mapping = COLUMN_MAP[parsedHeaders[c].toLowerCase()];
+      if (!mapping || mapping.table === 'players') continue;
+
+      var table = mapping.table;
+      if (!batches[table]) batches[table] = {};
+      if (!batches[table][rawMember]) batches[table][rawMember] = { member_number: rawMember };
+
+      var val = String(cells[c] || '').trim();
+
+      // Normalize email: strip all spaces, lowercase
+      if (mapping.col === 'email') val = val.replace(/\s/g, '').toLowerCase();
+
+      // Skill levels: parse to int or null
+      if (mapping.col === 'skill_level_8' || mapping.col === 'skill_level_9') {
+        var num = parseInt(val, 10);
+        val = isNaN(num) ? null : num;
+      }
+
+      batches[table][rawMember][mapping.col] = val;
+    }
+  }
+
+  // Convert batches from {member→row} to [rows]
+  var tableBatches = {};
+  for (var t in batches) {
+    tableBatches[t] = Object.values(batches[t]);
+  }
+
+  try {
+    // Step 1: Upsert players (identity table)
+    var total = playerRows.length;
+    setStatus('Upserting ' + total + ' players...', '');
+
+    // Batch in chunks of 500
+    for (var i = 0; i < playerRows.length; i += 500) {
+      var chunk = playerRows.slice(i, i + 500);
+      await fetch(SUPABASE_URL + '/rest/v1/players', {
+        method: 'POST',
+        headers: Object.assign(sbHeaders(true), { 'Prefer': 'resolution=merge-duplicates' }),
+        body: JSON.stringify(chunk)
+      });
+    }
+
+    // Step 2: Upsert each fact table
+    var tables = Object.keys(tableBatches);
+    for (var ti = 0; ti < tables.length; ti++) {
+      var tableName = tables[ti];
+      var rows = tableBatches[tableName];
+      setStatus('Upserting ' + tableName + ' (' + rows.length + ' rows)...', '');
+
+      for (var j = 0; j < rows.length; j += 500) {
+        var batch = rows.slice(j, j + 500);
+        var resp = await fetch(SUPABASE_URL + '/rest/v1/' + tableName, {
+          method: 'POST',
+          headers: Object.assign(sbHeaders(true), { 'Prefer': 'resolution=merge-duplicates' }),
+          body: JSON.stringify(batch)
+        });
+        if (!resp.ok) {
+          var err = await resp.text();
+          setStatus('Error on ' + tableName + ': ' + err, 'error');
+          document.getElementById('importBtn').disabled = false;
+          return;
+        }
+      }
+    }
+
+    setStatus('Imported ' + total + ' players across ' + (tables.length + 1) + ' tables.', 'success');
+    loadStats();
+  } catch (e) {
+    setStatus('Network error: ' + e.message, 'error');
+  }
+
+  document.getElementById('importBtn').disabled = false;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Stats
+// ════════════════════════════════════════════════════════════════════
+async function loadStats() {
+  try {
+    var h = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Prefer': 'count=exact' };
+
+    var r1 = await fetch(SUPABASE_URL + '/rest/v1/players?select=member_number', { headers: h, method: 'HEAD' });
+    document.getElementById('statTotal').textContent = r1.headers.get('content-range').split('/')[1] || '0';
+
+    var r2 = await fetch(SUPABASE_URL + '/rest/v1/player_contacts?select=member_number&email=neq.', { headers: h, method: 'HEAD' });
+    document.getElementById('statWithEmail').textContent = r2.headers.get('content-range').split('/')[1] || '0';
+
+    var r3 = await fetch(SUPABASE_URL + '/rest/v1/player_skills?select=member_number&skill_level_8=not.is.null', { headers: h, method: 'HEAD' });
+    document.getElementById('statWithSkill').textContent = r3.headers.get('content-range').split('/')[1] || '0';
+  } catch (e) { /* stats are optional */ }
+}
+
+function esc(s) { var d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
+function setStatus(msg, type) {
+  var el = document.getElementById('importStatus');
+  el.textContent = msg;
+  el.className = 'import-status' + (type ? ' ' + type : '');
+}
+
+loadStats();
+</script>
+</body>
+</html>

@@ -16,16 +16,37 @@
       background: rgba(255,255,255,0.2); color: #fff; border: 1.5px solid rgba(255,255,255,0.5);
     }
 
-    /* ── Auth ─────────────────────────────────────────────────────── */
-    .auth-wrap { max-width: 480px; margin: 60px auto 0; text-align: center; }
-    .auth-wrap p { color: var(--muted); margin: 8px 0 20px; }
-    .auth-row { display: flex; gap: 8px; }
-    .auth-row input {
-      flex: 1; border: 2px solid var(--border); border-radius: 999px;
-      padding: 12px 20px; font-size: 1rem; outline: none; min-height: 48px;
+    /* ── Auth (Playoffs/MultiPass style) ─────────────────────────── */
+    .lookup-bar {
+      display: flex; flex-direction: column; align-items: stretch; gap: 8px;
+      width: 100%; max-width: 480px; margin: 0 auto 16px; padding: 12px 16px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     }
-    .auth-row input:focus { border-color: var(--spm-accent); }
-    .auth-error { font-size: 0.85rem; color: var(--spm-primary); margin-top: 8px; }
+    .lookup-bar .lookup-input {
+      width: 100%; padding: 12px 16px; font-size: 1rem; border-radius: 12px;
+      border: 1px solid var(--border); background: var(--bg); font-family: inherit;
+      text-align: center; outline: none; min-height: 48px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .lookup-bar .lookup-input:focus {
+      border-color: var(--spm-accent); box-shadow: 0 0 0 3px rgba(0,49,161,0.15);
+    }
+    .lookup-bar .lookup-btn {
+      width: 100%; padding: 12px 20px; border: none;
+      border-bottom: 3px solid rgba(0,0,0,0.25); border-radius: 12px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.22) 0%, rgba(0,0,0,0.10) 100%),
+                  linear-gradient(135deg, var(--spm-primary), var(--spm-accent));
+      color: #fff; font-weight: 900; font-size: 1rem; letter-spacing: 0.1em;
+      box-shadow: inset 0 1px 1px rgba(255,255,255,0.35), 0 4px 10px rgba(0,0,0,0.30);
+      cursor: pointer; font-family: inherit; text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+      transition: transform 0.15s, box-shadow 0.15s; min-height: 48px;
+    }
+    .lookup-bar .lookup-btn:active {
+      transform: translateY(2px); border-bottom-width: 1px;
+      box-shadow: inset 0 1px 1px rgba(255,255,255,0.15), 0 1px 4px rgba(0,0,0,0.25);
+    }
+    .auth-error { font-size: 0.85rem; color: var(--spm-primary); text-align: center; margin-top: 4px; }
 
     /* ── Dashboard ────────────────────────────────────────────────── */
     .greeting { text-align: center; margin: 24px 0 8px; font-size: 1.2rem; }
@@ -77,9 +98,26 @@
     .roster-col { min-width: 0; }
 
     /* ── Add Player ───────────────────────────────────────────────── */
-    .add-row { display: flex; gap: 8px; margin-bottom: 16px; }
+    .add-row { display: flex; gap: 8px; margin-bottom: 16px; position: relative; }
     .add-row input { flex: 1; border: 2px solid var(--border); border-radius: 12px; padding: 10px 14px; font-size: 1rem; outline: none; min-height: 48px; }
     .add-row input:focus { border-color: var(--spm-accent); }
+
+    /* ── Autocomplete Dropdown ────────────────────────────────────── */
+    .ac-dropdown {
+      position: absolute; top: 100%; left: 0; right: 60px; /* leave room for Add btn */
+      background: #fff; border: 2px solid var(--spm-accent); border-top: none;
+      border-radius: 0 0 12px 12px; max-height: 240px; overflow-y: auto;
+      z-index: 100; box-shadow: 0 6px 16px rgba(0,0,0,0.15); display: none;
+    }
+    .ac-dropdown.open { display: block; }
+    .ac-item {
+      padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f0f0f0;
+    }
+    .ac-item:hover, .ac-item.focused { background: #f0f4ff; }
+    .ac-item:last-child { border-bottom: none; }
+    .ac-name { font-weight: 600; font-size: 0.9rem; }
+    .ac-name .nick { font-style: italic; font-weight: 400; color: var(--muted); }
+    .ac-apa { font-size: 0.75rem; color: var(--muted); }
 
     /* ── Player Card in Roster ────────────────────────────────────── */
     .rp-card {
@@ -150,23 +188,17 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.7</div>
+      <div class="app-pill">Session Registration &middot; v0.8</div>
     </div>
   </div>
 
   <!-- ═══ Screen: Auth ═══ -->
   <div id="screenAuth">
-    <div class="auth-wrap">
-      <div class="spm-card">
-        <h2 style="margin:0 0 4px">Find Your Account</h2>
-        <p>Enter your APA number or email address.</p>
-        <div class="auth-row">
-          <input type="text" id="authInput" placeholder="APA # or email" onkeydown="if(event.key==='Enter')doLookup()">
-          <button class="spm-btn spm-btn-primary" onclick="doLookup()">Look Up</button>
-        </div>
-        <div class="auth-error" id="authError"></div>
-      </div>
-    </div>
+    <form class="lookup-bar" autocomplete="off" onsubmit="event.preventDefault();doLookup()">
+      <input class="lookup-input" id="authInput" type="text" placeholder="APA # or Email" aria-label="APA number or email address" inputmode="text">
+      <button class="lookup-btn" type="submit">FIND ME</button>
+    </form>
+    <div class="auth-error" id="authError"></div>
   </div>
 
   <!-- ═══ Screen: Dashboard ═══ -->
@@ -369,10 +401,11 @@ function renderRegForm() {
   html += '<div class="form-group"><label>Host Location / Area</label>';
   html += '<input type="text" id="regHost" value="' + esc(document.getElementById('regHost') ? document.getElementById('regHost').value : '') + '" placeholder="Venue name or area"></div>';
 
-  // Add player input
+  // Add player input with autocomplete
   html += '<div class="add-row">';
-  html += '<input type="text" id="addPlayerInput" placeholder="Enter APA # to add player" onkeydown="if(event.key===\'Enter\')addPlayer()">';
+  html += '<input type="text" id="addPlayerInput" placeholder="APA # or name" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">';
   html += '<button class="spm-btn spm-btn-primary" onclick="addPlayer()">Add</button>';
+  html += '<div class="ac-dropdown" id="acDropdown"></div>';
   html += '</div>';
 
   // Roster
@@ -474,6 +507,126 @@ function renderSingleRoster() {
 // ════════════════════════════════════════════════════════════════════
 // Roster Actions
 // ════════════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════════════════════════════
+// Autocomplete — search by name or APA# with debounce
+// ════════════════════════════════════════════════════════════════════
+var acTimer = null;
+var acResults = [];
+var acFocused = -1;
+
+function onSearchInput() {
+  clearTimeout(acTimer);
+  var val = document.getElementById('addPlayerInput').value.trim();
+  if (val.length < 2) { closeAC(); return; }
+  acTimer = setTimeout(function() { doACSearch(val); }, 250);
+}
+
+function onSearchKeydown(e) {
+  var dd = document.getElementById('acDropdown');
+  if (!dd || !dd.classList.contains('open')) {
+    if (e.key === 'Enter') { e.preventDefault(); addPlayer(); }
+    return;
+  }
+  if (e.key === 'ArrowDown') { e.preventDefault(); acFocused = Math.min(acFocused + 1, acResults.length - 1); renderACHighlight(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); acFocused = Math.max(acFocused - 1, 0); renderACHighlight(); }
+  else if (e.key === 'Enter') { e.preventDefault(); if (acFocused >= 0) selectACItem(acFocused); else addPlayer(); }
+  else if (e.key === 'Escape') { closeAC(); }
+}
+
+async function doACSearch(query) {
+  var isNum = /^\d+$/.test(query);
+  var filter;
+  if (isNum) {
+    filter = 'member_number=like.*' + encodeURIComponent(query) + '*';
+  } else {
+    var q = encodeURIComponent('%' + query + '%');
+    filter = 'or=(first_name.ilike.' + q + ',nickname.ilike.' + q + ',last_name.ilike.' + q + ')';
+  }
+
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/player_full?' + filter + '&limit=10&order=last_name,first_name', { headers: SB_HEADERS });
+    if (!resp.ok) return;
+    acResults = await resp.json();
+    acFocused = -1;
+    renderACDropdown();
+  } catch (e) { /* silent */ }
+}
+
+function renderACDropdown() {
+  var dd = document.getElementById('acDropdown');
+  if (!dd) return;
+  if (acResults.length === 0) { closeAC(); return; }
+
+  var html = '';
+  for (var i = 0; i < acResults.length; i++) {
+    var p = acResults[i];
+    var cls = i === acFocused ? ' focused' : '';
+    html += '<div class="ac-item' + cls + '" onmousedown="selectACItem(' + i + ')">';
+    html += '<div class="ac-name">' + esc(p.first_name);
+    if (p.nickname) html += ' <span class="nick">"' + esc(p.nickname) + '"</span>';
+    html += ' ' + esc(p.last_name) + '</div>';
+    html += '<div class="ac-apa">APA #' + esc(p.member_number) + '</div>';
+    html += '</div>';
+  }
+
+  dd.innerHTML = html;
+  dd.classList.add('open');
+}
+
+function renderACHighlight() {
+  var items = document.querySelectorAll('.ac-item');
+  for (var i = 0; i < items.length; i++) {
+    items[i].classList.toggle('focused', i === acFocused);
+  }
+}
+
+function selectACItem(idx) {
+  var p = acResults[idx];
+  if (!p) return;
+  closeAC();
+
+  var apa = p.member_number;
+  // Check duplicate
+  for (var i = 0; i < roster.length; i++) {
+    if (roster[i].memberNumber === apa) { showToast('Player already on roster.', 'warn'); return; }
+  }
+
+  // Check max
+  if (!isDJ && roster.length >= MAX_ROSTER) { showToast('Roster full.', 'warn'); return; }
+
+  var entry = {
+    memberNumber: apa,
+    firstName: p.first_name || '',
+    nickname: p.nickname || '',
+    lastName: p.last_name || ''
+  };
+
+  if (isDJ) {
+    entry.onRoster8 = true;
+    entry.onRoster9 = true;
+    entry.role8 = 'Player';
+    entry.role9 = 'Player';
+  } else {
+    entry.role = 'Player';
+  }
+
+  roster.push(entry);
+  document.getElementById('addPlayerInput').value = '';
+  renderRegForm();
+}
+
+function closeAC() {
+  var dd = document.getElementById('acDropdown');
+  if (dd) { dd.classList.remove('open'); dd.innerHTML = ''; }
+  acResults = [];
+  acFocused = -1;
+}
+
+// Close autocomplete when clicking outside
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.add-row')) closeAC();
+});
+
 async function addPlayer() {
   var input = document.getElementById('addPlayerInput');
   var raw = input.value.trim();

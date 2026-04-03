@@ -341,7 +341,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.57</div>
+      <div class="app-pill">Session Registration &middot; v0.58</div>
     </div>
   </div>
 
@@ -910,6 +910,23 @@ function startRegistration(format) {
   var oldName = document.getElementById('regTeamName'); if (oldName) oldName.value = '';
   var oldDiv = document.getElementById('regDivision'); if (oldDiv) oldDiv.value = '';
   var oldHost = document.getElementById('regHost'); if (oldHost) oldHost.value = '';
+
+  // Auto-add the logged-in player as first roster entry (Captain)
+  if (currentPlayer) {
+    var entry = {
+      memberNumber: currentPlayer.member_number,
+      firstName: currentPlayer.first_name || '',
+      nickname: currentPlayer.nickname || '',
+      lastName: currentPlayer.last_name || ''
+    };
+    if (isDJ) {
+      entry.onRoster8 = true; entry.onRoster9 = true;
+      entry.role8 = 'Captain'; entry.role9 = 'Captain';
+    } else {
+      entry.role = 'Captain';
+    }
+    roster.push(entry);
+  }
 
   renderRegForm();
   showScreen('screenRegForm');

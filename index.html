@@ -341,7 +341,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.59</div>
+      <div class="app-pill">Session Registration &middot; v0.60</div>
     </div>
   </div>
 
@@ -1347,10 +1347,14 @@ function selectACItem(idx) {
   };
 
   if (isDJ) {
-    entry.onRoster8 = true;
-    entry.onRoster9 = true;
+    var count8 = roster.filter(function(r) { return r.onRoster8; }).length;
+    var count9 = roster.filter(function(r) { return r.onRoster9; }).length;
+    entry.onRoster8 = count8 < currentConfig.max;
+    entry.onRoster9 = count9 < currentConfig.max;
     entry.role8 = 'Player';
     entry.role9 = 'Player';
+    // If both sides full, can't add at all
+    if (!entry.onRoster8 && !entry.onRoster9) { showToast('Both rosters are full.', 'warn'); return; }
   } else {
     entry.role = 'Player';
   }
@@ -1419,10 +1423,13 @@ async function addPlayer() {
     };
 
     if (isDJ) {
-      entry.onRoster8 = true;
-      entry.onRoster9 = true;
+      var count8 = roster.filter(function(r) { return r.onRoster8; }).length;
+      var count9 = roster.filter(function(r) { return r.onRoster9; }).length;
+      entry.onRoster8 = count8 < currentConfig.max;
+      entry.onRoster9 = count9 < currentConfig.max;
       entry.role8 = 'Player';
       entry.role9 = 'Player';
+      if (!entry.onRoster8 && !entry.onRoster9) { showToast('Both rosters are full.', 'warn'); return; }
     } else {
       entry.role = 'Player';
     }

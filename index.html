@@ -195,7 +195,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.24</div>
+      <div class="app-pill">Session Registration &middot; v0.25</div>
     </div>
   </div>
 
@@ -572,7 +572,6 @@ function renderDJPlayerRow(idx) {
   html += '<div class="rp-name">' + esc(p.firstName) + '</div>';
   html += '<div class="rp-name">' + esc(p.lastName) + '</div>';
   html += '<div class="rp-member">#' + esc(p.memberNumber) + '</div>';
-  html += '<button class="rp-remove" onclick="removePlayer(' + idx + ')">remove</button>';
   html += '</div>';
 
   // Right: 9-ball controls
@@ -858,6 +857,11 @@ function toggleRoster(idx, col) {
     showToast('Max ' + MAX_ROSTER + ' players per roster.', 'warn');
   }
 
+  // Auto-remove if off both rosters
+  if (isDJ && !roster[idx].onRoster8 && !roster[idx].onRoster9) {
+    roster.splice(idx, 1);
+  }
+
   autoAssignRoles();
   renderRegForm();
 }
@@ -871,11 +875,19 @@ function autoAssignRoles() {
   } else {
     var hasCaptain = roster.some(function(r) { return r.role === 'Captain'; });
     var hasCoCaptain = roster.some(function(r) { return r.role === 'Co-Captain'; });
-    if (!hasCaptain && roster.length >= 1) roster[0].role = 'Captain';
+    if (!hasCaptain && roster.length >= 1) {
+      // Assign to first regular player (not Co-Captain)
+      for (var ci = 0; ci < roster.length; ci++) {
+        if (roster[ci].role === 'Player') { roster[ci].role = 'Captain'; break; }
+      }
+      // If no regular player found, all are Co-Captain — promote first one
+      if (!roster.some(function(r) { return r.role === 'Captain'; }) && roster.length >= 1) {
+        roster[0].role = 'Captain';
+      }
+    }
     if (!hasCoCaptain && roster.length >= 2) {
-      // Find first player that isn't captain
       for (var i = 0; i < roster.length; i++) {
-        if (roster[i].role !== 'Captain') { roster[i].role = 'Co-Captain'; break; }
+        if (roster[i].role === 'Player') { roster[i].role = 'Co-Captain'; break; }
       }
     }
   }
@@ -885,10 +897,19 @@ function autoAssignDJCol(roleKey, rosterKey) {
   var onRoster = roster.filter(function(r) { return r[rosterKey]; });
   var hasCaptain = onRoster.some(function(r) { return r[roleKey] === 'Captain'; });
   var hasCoCaptain = onRoster.some(function(r) { return r[roleKey] === 'Co-Captain'; });
-  if (!hasCaptain && onRoster.length >= 1) onRoster[0][roleKey] = 'Captain';
+  if (!hasCaptain && onRoster.length >= 1) {
+    // Assign to first regular player (not Co-Captain)
+    for (var ci = 0; ci < onRoster.length; ci++) {
+      if (onRoster[ci][roleKey] === 'Player') { onRoster[ci][roleKey] = 'Captain'; break; }
+    }
+    // If no regular player, promote first one
+    if (!onRoster.some(function(r) { return r[roleKey] === 'Captain'; })) {
+      onRoster[0][roleKey] = 'Captain';
+    }
+  }
   if (!hasCoCaptain && onRoster.length >= 2) {
     for (var i = 0; i < onRoster.length; i++) {
-      if (onRoster[i][roleKey] !== 'Captain') { onRoster[i][roleKey] = 'Co-Captain'; break; }
+      if (onRoster[i][roleKey] === 'Player') { onRoster[i][roleKey] = 'Co-Captain'; break; }
     }
   }
 }

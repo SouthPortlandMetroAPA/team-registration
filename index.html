@@ -332,6 +332,35 @@
       letter-spacing: 0.04em;
     }
 
+    /* ── Search Hint Popup (first-time only) ─────────────────────── */
+    .hint-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center; z-index: 10001; padding: 20px;
+    }
+    .hint-overlay.active { display: flex; }
+    .hint-box {
+      background: #fff; border-radius: 20px; padding: 28px 24px 20px;
+      text-align: center; box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+      max-width: 380px; width: 100%; position: relative; overflow: hidden;
+    }
+    .hint-box::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 5px;
+      background: linear-gradient(135deg, var(--spm-primary), var(--spm-accent));
+    }
+    .hint-icon {
+      width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 12px;
+      background: linear-gradient(135deg, var(--spm-primary), var(--spm-accent));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.6rem; color: #fff;
+    }
+    .hint-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 12px; color: var(--text); }
+    .hint-body { font-size: 0.9rem; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+    .hint-body .hint-tag {
+      display: inline-block; background: #f0f4ff; color: var(--spm-accent);
+      font-weight: 700; font-size: 0.8rem; padding: 3px 12px; border-radius: 999px;
+      margin: 3px 2px;
+    }
+
     .hidden { display: none !important; }
   </style>
 </head>
@@ -341,15 +370,14 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.61</div>
+      <div class="app-pill">Session Registration &middot; v0.62</div>
     </div>
   </div>
 
   <!-- ═══ Screen: Auth ═══ -->
   <div id="screenAuth">
-    <form class="lookup-bar" autocomplete="off" onsubmit="event.preventDefault();doLookup()" style="position:relative">
-      <input class="lookup-input" id="authInput" type="text" placeholder="Search" aria-label="APA number, name, or email" inputmode="text" oninput="onAuthSearchInput()" onkeydown="onAuthSearchKeydown(event)">
-      <div class="ac-dropdown" id="authACDropdown"></div>
+    <form class="lookup-bar" autocomplete="off" onsubmit="event.preventDefault();doLookup()">
+      <input class="lookup-input" id="authInput" type="text" placeholder="APA # or email" aria-label="APA number or email" inputmode="text">
       <button class="lookup-btn" type="submit">FIND ME</button>
     </form>
     <div class="auth-error" id="authError"></div>
@@ -411,6 +439,22 @@
   <div class="loading-modal-box">
     <div class="loading-spinner"></div>
     <div>Looking up...</div>
+  </div>
+</div>
+
+<!-- Search Hint (first-time only) -->
+<div class="hint-overlay" id="hintOverlay">
+  <div class="hint-box">
+    <div class="hint-icon">&#128270;</div>
+    <div class="hint-title">Finding Players is Easy</div>
+    <div class="hint-body">
+      When adding players to your roster, just start typing in the search box. You can search by:<br>
+      <span class="hint-tag">First Name</span>
+      <span class="hint-tag">Last Name</span>
+      <span class="hint-tag">Nickname</span>
+      <span class="hint-tag">APA #</span>
+    </div>
+    <button class="spm-btn spm-btn-primary" onclick="dismissHint()" id="hintOkBtn">Got It</button>
   </div>
 </div>
 
@@ -933,6 +977,23 @@ function startRegistration(format) {
 
   renderRegForm();
   showScreen('screenRegForm');
+
+  // Show search hint on first-ever registration page visit
+  showSearchHintOnce();
+}
+
+function showSearchHintOnce() {
+  try {
+    if (localStorage.getItem('teamreg_hintSeen')) return;
+  } catch (e) {}
+  document.getElementById('hintOverlay').classList.add('active');
+  var btn = document.getElementById('hintOkBtn');
+  if (btn) setTimeout(function() { btn.focus(); }, 50);
+}
+
+function dismissHint() {
+  document.getElementById('hintOverlay').classList.remove('active');
+  try { localStorage.setItem('teamreg_hintSeen', '1'); } catch (e) {}
 }
 
 // ════════════════════════════════════════════════════════════════════

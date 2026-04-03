@@ -209,6 +209,14 @@ function parseData() {
     return h.replace(/[\u00A0\u2000-\u200B\uFEFF]/g, ' ').replace(/\s+/g, ' ').trim();
   });
 
+  // Debug: log raw and normalized headers + which ones mapped
+  var rawHeaders = lines[0].split('\t');
+  console.log('RAW HEADERS:', rawHeaders.map(function(h,i) {
+    var norm = parsedHeaders[i];
+    var matched = !!COLUMN_MAP[norm.toLowerCase()];
+    return '[' + i + '] raw="' + h + '" norm="' + norm + '" matched=' + matched;
+  }));
+
   var mapped = 0;
   parsedMemberIdx = -1;
   for (var i = 0; i < parsedHeaders.length; i++) {

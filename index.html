@@ -341,7 +341,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.58</div>
+      <div class="app-pill">Session Registration &middot; v0.59</div>
     </div>
   </div>
 
@@ -1268,9 +1268,9 @@ async function doACSearch(query) {
     filter = 'or=(first_name.ilike.' + q + ',nickname.ilike.' + q + ',last_name.ilike.' + q + ')';
   }
 
-  // Ladies format: only show female players
+  // Ladies format: only show female players (gender values are M/F in DB)
   if (selectedFormat === 'Ladies') {
-    filter += '&gender=eq.Female';
+    filter += '&gender=eq.F';
   }
 
   try {
@@ -1406,7 +1406,7 @@ async function addPlayer() {
     var p = data[0];
 
     // Ladies format: reject non-female players
-    if (selectedFormat === 'Ladies' && p.gender !== 'Female') {
+    if (selectedFormat === 'Ladies' && p.gender !== 'F') {
       showToast('Ladies format requires female players.', 'warn');
       return;
     }

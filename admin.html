@@ -46,6 +46,34 @@
 
     .hidden { display: none !important; }
 
+    /* ── Tabs ─────────────────────────────────────────────────────── */
+    .tab-btn {
+      background: var(--card); border: 1px solid var(--border); border-radius: 999px;
+      padding: 8px 16px; font-size: 0.85rem; font-weight: 600; cursor: pointer; min-height: 44px;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--spm-primary), var(--spm-accent));
+      color: #fff; border-color: transparent;
+    }
+
+    /* ── List Items ───────────────────────────────────────────────── */
+    .list-item {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 12px; border-bottom: 1px solid #f0f0f0; font-size: 0.9rem;
+    }
+    .list-item:last-child { border-bottom: none; }
+    .list-item .remove-link {
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      font-size: 0.75rem; text-decoration: underline;
+    }
+    .list-item .remove-link:hover { color: var(--spm-primary); }
+
+    @media (max-width: 600px) {
+      #tabDivisions .spm-card > div:nth-child(3) {
+        grid-template-columns: 1fr 1fr !important;
+      }
+    }
+
     /* ── Progress Modal ───────────────────────────────────────────── */
     .progress-modal {
       position: fixed; inset: 0; background: rgba(0,0,0,0.55);
@@ -75,18 +103,28 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Player Data Management &middot; v0.9</div>
+      <div class="app-pill">Player Data Management &middot; v0.26</div>
     </div>
   </div>
 
-  <!-- ═══ Stats ═══ -->
+  <!-- ═══ Tabs ═══ -->
+  <div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">
+    <button class="tab-btn active" onclick="switchTab('import')">Import Player Data</button>
+    <button class="tab-btn" onclick="switchTab('divisions')">Divisions</button>
+    <button class="tab-btn" onclick="switchTab('areas')">Areas</button>
+  </div>
+
+  <!-- ═══ Tab: Import ═══ -->
+  <div id="tabImport">
+
+  <!-- Stats -->
   <div class="stats-row">
     <div class="stat-card"><div class="num" id="statTotal">—</div><div class="label">Total Players</div></div>
     <div class="stat-card"><div class="num" id="statWithEmail">—</div><div class="label">With Email</div></div>
     <div class="stat-card"><div class="num" id="statWithSkill">—</div><div class="label">With Skill Level</div></div>
   </div>
 
-  <!-- ═══ Import ═══ -->
+  <!-- Import -->
   <div class="spm-card import-section">
     <h3>Import Player Data</h3>
     <p>Paste tab-separated data from the spreadsheet. First row must be headers. Supported columns:<br>
@@ -101,7 +139,65 @@
     <div class="import-actions">
       <button class="spm-btn spm-btn-secondary" onclick="previewImport()">Preview</button>
       <button class="spm-btn spm-btn-primary" id="importBtn" onclick="executeImport()">Import</button>
+      <button class="spm-btn spm-btn-secondary" onclick="exportPlayers()" style="margin-left:auto">&#8595; Export CSV</button>
       <span class="import-status" id="importStatus"></span>
+    </div>
+  </div>
+
+  </div><!-- end tabImport -->
+
+  <!-- ═══ Tab: Divisions ═══ -->
+  <div id="tabDivisions" class="hidden">
+    <div class="spm-card">
+      <h3 style="margin:0 0 12px">Manage Divisions</h3>
+      <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px">A division is a specific format + day + time + area combination that teams can register for.</p>
+
+      <!-- Add division form -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin-bottom:16px;padding:12px;background:#f8f9fa;border-radius:12px">
+        <div><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Format</label>
+          <select id="divFormat" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:6px;font-size:0.85rem;min-height:36px">
+            <option>Double Jeopardy</option><option>8-Ball Open</option><option>9-Ball Open</option>
+            <option>DJ Doubles</option><option>8-Ball Doubles</option><option>9-Ball Doubles</option>
+            <option>Masters</option><option>Ladies</option>
+          </select>
+        </div>
+        <div><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Day</label>
+          <select id="divDay" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:6px;font-size:0.85rem;min-height:36px">
+            <option>Monday</option><option>Tuesday</option><option>Wednesday</option><option>Thursday</option>
+            <option>Friday</option><option>Saturday</option><option>Sunday</option>
+          </select>
+        </div>
+        <div><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Time</label>
+          <input type="text" id="divTime" placeholder="e.g. 6:30p" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:6px;font-size:0.85rem;min-height:36px">
+        </div>
+        <div><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Area</label>
+          <select id="divArea" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:6px;font-size:0.85rem;min-height:36px">
+          </select>
+        </div>
+        <button class="spm-btn spm-btn-primary" style="padding:6px 16px;font-size:0.85rem;min-height:36px" onclick="addDivision()">Add</button>
+      </div>
+
+      <!-- Divisions list -->
+      <div id="divisionsList"></div>
+    </div>
+  </div>
+
+  <!-- ═══ Tab: Areas ═══ -->
+  <div id="tabAreas" class="hidden">
+    <div class="spm-card">
+      <h3 style="margin:0 0 12px">Manage Areas</h3>
+      <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px">Areas are geographic regions used when creating divisions.</p>
+
+      <!-- Add area form -->
+      <div style="display:flex;gap:8px;margin-bottom:16px;padding:12px;background:#f8f9fa;border-radius:12px;align-items:end">
+        <div style="flex:1"><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Area Name</label>
+          <input type="text" id="areaName" placeholder="e.g. West Hills" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:6px;font-size:0.85rem;min-height:36px">
+        </div>
+        <button class="spm-btn spm-btn-primary" style="padding:6px 16px;font-size:0.85rem;min-height:36px" onclick="addArea()">Add</button>
+      </div>
+
+      <!-- Areas list -->
+      <div id="areasList"></div>
     </div>
   </div>
 
@@ -557,6 +653,177 @@ function setStatus(msg, type) {
 }
 
 loadStats();
+
+// ════════════════════════════════════════════════════════════════════
+// Tab Switching
+// ════════════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  var tabs = { import: 'tabImport', divisions: 'tabDivisions', areas: 'tabAreas' };
+  for (var k in tabs) {
+    document.getElementById(tabs[k]).classList.toggle('hidden', k !== tab);
+  }
+  var btns = document.querySelectorAll('.tab-btn');
+  for (var i = 0; i < btns.length; i++) {
+    var match = (tab === 'import' && btns[i].textContent.indexOf('Import') !== -1) ||
+                (tab === 'divisions' && btns[i].textContent === 'Divisions') ||
+                (tab === 'areas' && btns[i].textContent === 'Areas');
+    btns[i].classList.toggle('active', match);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Areas Management (localStorage — DB tables later)
+// ════════════════════════════════════════════════════════════════════
+var areas = JSON.parse(localStorage.getItem('spm_areas') || '[]');
+
+function saveAreas() {
+  localStorage.setItem('spm_areas', JSON.stringify(areas));
+  renderAreas();
+  renderAreaDropdown();
+}
+
+function addArea() {
+  var input = document.getElementById('areaName');
+  var name = input.value.trim();
+  if (!name) return;
+  if (areas.indexOf(name) !== -1) { setStatus('Area already exists.', 'error'); return; }
+  areas.push(name);
+  areas.sort();
+  input.value = '';
+  saveAreas();
+}
+
+function removeArea(idx) {
+  areas.splice(idx, 1);
+  saveAreas();
+}
+
+function renderAreas() {
+  var html = '';
+  for (var i = 0; i < areas.length; i++) {
+    html += '<div class="list-item"><span>' + esc(areas[i]) + '</span>';
+    html += '<button class="remove-link" onclick="removeArea(' + i + ')">remove</button></div>';
+  }
+  if (areas.length === 0) html = '<div style="color:var(--muted);padding:16px;text-align:center">No areas defined yet.</div>';
+  document.getElementById('areasList').innerHTML = html;
+}
+
+function renderAreaDropdown() {
+  var sel = document.getElementById('divArea');
+  if (!sel) return;
+  var current = sel.value;
+  sel.innerHTML = '<option value="">-- Select --</option>';
+  for (var i = 0; i < areas.length; i++) {
+    var opt = document.createElement('option');
+    opt.value = areas[i];
+    opt.textContent = areas[i];
+    if (areas[i] === current) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Divisions Management (localStorage — DB tables later)
+// ════════════════════════════════════════════════════════════════════
+var divisions = JSON.parse(localStorage.getItem('spm_divisions') || '[]');
+
+function saveDivisions() {
+  localStorage.setItem('spm_divisions', JSON.stringify(divisions));
+  renderDivisions();
+}
+
+function addDivision() {
+  var format = document.getElementById('divFormat').value;
+  var day = document.getElementById('divDay').value;
+  var time = document.getElementById('divTime').value.trim();
+  var area = document.getElementById('divArea').value;
+  if (!time) { setStatus('Time is required.', 'error'); return; }
+  if (!area) { setStatus('Area is required.', 'error'); return; }
+
+  var dup = divisions.some(function(d) {
+    return d.format === format && d.day === day && d.area === area;
+  });
+  if (dup) { setStatus('This division already exists.', 'error'); return; }
+
+  divisions.push({ format: format, day: day, time: time, area: area });
+  divisions.sort(function(a, b) {
+    var days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    var d = days.indexOf(a.day) - days.indexOf(b.day);
+    if (d !== 0) return d;
+    return a.format.localeCompare(b.format) || a.area.localeCompare(b.area);
+  });
+  saveDivisions();
+}
+
+function removeDivision(idx) {
+  divisions.splice(idx, 1);
+  saveDivisions();
+}
+
+function renderDivisions() {
+  var html = '';
+  for (var i = 0; i < divisions.length; i++) {
+    var d = divisions[i];
+    html += '<div class="list-item">';
+    html += '<span><strong>' + esc(d.format) + '</strong> &middot; ' + esc(d.day) + ' ' + esc(d.time) + ' &middot; ' + esc(d.area) + '</span>';
+    html += '<button class="remove-link" onclick="removeDivision(' + i + ')">remove</button>';
+    html += '</div>';
+  }
+  if (divisions.length === 0) html = '<div style="color:var(--muted);padding:16px;text-align:center">No divisions defined yet.</div>';
+  document.getElementById('divisionsList').innerHTML = html;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Export Player Data to CSV
+// ════════════════════════════════════════════════════════════════════
+async function exportPlayers() {
+  setStatus('Exporting...', '');
+  try {
+    var allData = [];
+    var page = 0;
+    var pageSize = 1000;
+    while (true) {
+      var resp = await fetch(SUPABASE_URL + '/rest/v1/player_full?order=member_number&offset=' + (page * pageSize) + '&limit=' + pageSize, {
+        headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
+      });
+      if (!resp.ok) throw new Error('Server error');
+      var batch = await resp.json();
+      if (batch.length === 0) break;
+      allData = allData.concat(batch);
+      page++;
+    }
+
+    if (allData.length === 0) { setStatus('No data to export.', 'error'); return; }
+
+    var cols = Object.keys(allData[0]);
+    var rows = [cols.join(',')];
+    for (var i = 0; i < allData.length; i++) {
+      var row = cols.map(function(c) {
+        var v = String(allData[i][c] == null ? '' : allData[i][c]);
+        if (v.indexOf(',') !== -1 || v.indexOf('"') !== -1 || v.indexOf('\n') !== -1) {
+          return '"' + v.replace(/"/g, '""') + '"';
+        }
+        return v;
+      });
+      rows.push(row.join(','));
+    }
+
+    var csv = rows.join('\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'player-data.csv';
+    link.click();
+    setStatus('Exported ' + allData.length + ' players.', 'success');
+  } catch (e) {
+    setStatus('Export error: ' + e.message, 'error');
+  }
+}
+
+// Init
+renderAreas();
+renderDivisions();
+renderAreaDropdown();
 </script>
 </body>
 </html>

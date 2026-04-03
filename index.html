@@ -27,18 +27,91 @@
     .auth-row input:focus { border-color: var(--spm-accent); }
     .auth-error { font-size: 0.85rem; color: var(--spm-primary); margin-top: 8px; }
 
-    /* ── Player Card ──────────────────────────────────────────────── */
-    .player-card { margin-top: 24px; }
-    .player-name { font-size: 1.3rem; font-weight: 700; margin-bottom: 4px; }
-    .player-nickname { font-style: italic; color: var(--muted); font-size: 1rem; }
-    .player-member { font-size: 0.85rem; color: var(--muted); margin-bottom: 16px; }
-    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; }
-    @media (max-width: 480px) { .info-grid { grid-template-columns: 1fr; } }
-    .info-item label { display: block; font-size: 0.7rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-    .info-item span { font-size: 0.95rem; }
-    .section-divider { border-top: 1px solid var(--border); margin: 16px 0; }
+    /* ── Dashboard ────────────────────────────────────────────────── */
+    .greeting { text-align: center; margin: 24px 0 8px; font-size: 1.2rem; }
+    .greeting strong { font-weight: 700; }
+    .greeting .nick { font-style: italic; color: var(--muted); }
+    .empty-state { text-align: center; color: var(--muted); padding: 32px 16px; font-size: 0.95rem; }
+    .dash-actions { text-align: center; margin-top: 16px; }
 
-    /* ── Loading ──────────────────────────────────────────────────── */
+    /* ── Format Selection ─────────────────────────────────────────── */
+    .format-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+      max-width: 500px; margin: 20px auto 0;
+    }
+    @media (max-width: 400px) { .format-grid { grid-template-columns: 1fr; } }
+    .format-btn {
+      background: var(--card); border: 2px solid var(--border); border-radius: 16px;
+      padding: 16px 12px; text-align: center; cursor: pointer; font-weight: 600;
+      font-size: 0.95rem; transition: all 0.15s; min-height: 56px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .format-btn:hover { border-color: var(--spm-accent); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+
+    /* ── Registration Form ────────────────────────────────────────── */
+    .reg-form { margin-top: 16px; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.9rem; }
+    .form-group input, .form-group select {
+      width: 100%; border: 2px solid var(--border); border-radius: 12px;
+      padding: 10px 14px; font-size: 1rem; outline: none; min-height: 44px;
+    }
+    .form-group input:focus, .form-group select:focus { border-color: var(--spm-accent); }
+
+    /* ── Ball Headers ─────────────────────────────────────────────── */
+    .ball-header { text-align: center; margin-bottom: 12px; }
+    .ball { display: inline-flex; align-items: center; justify-content: center;
+      width: 48px; height: 48px; border-radius: 50%; font-weight: 900; font-size: 1.2rem; }
+    .ball-8 { background: #1a1a1a; color: #fff; }
+    .ball-9 { background: #f5c518; color: #1a1a1a; position: relative; }
+    .ball-9::before {
+      content: ''; position: absolute; top: 12px; left: 4px; right: 4px; height: 24px;
+      background: #fff; border-radius: 50%; z-index: 0;
+    }
+    .ball-9 span { position: relative; z-index: 1; }
+    .ball-label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--muted); margin-top: 4px; }
+
+    /* ── Roster Columns (DJ) ──────────────────────────────────────── */
+    .roster-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    @media (max-width: 600px) { .roster-columns { grid-template-columns: 1fr; } }
+    .roster-col { min-width: 0; }
+
+    /* ── Add Player ───────────────────────────────────────────────── */
+    .add-row { display: flex; gap: 8px; margin-bottom: 16px; }
+    .add-row input { flex: 1; border: 2px solid var(--border); border-radius: 12px; padding: 10px 14px; font-size: 1rem; outline: none; min-height: 48px; }
+    .add-row input:focus { border-color: var(--spm-accent); }
+
+    /* ── Player Card in Roster ────────────────────────────────────── */
+    .rp-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 10px 12px; margin-bottom: 8px; position: relative;
+    }
+    .rp-card.off-roster { opacity: 0.4; }
+    .rp-name { font-weight: 600; font-size: 0.9rem; }
+    .rp-name .nick { font-style: italic; font-weight: 400; color: var(--muted); }
+    .rp-member { font-size: 0.75rem; font-style: italic; color: var(--muted); }
+    .rp-controls { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; align-items: center; }
+    .rp-btn {
+      border: 1px solid var(--border); border-radius: 8px; padding: 3px 8px;
+      font-size: 0.7rem; font-weight: 600; cursor: pointer; background: #fff; color: var(--muted);
+      min-height: 28px; transition: all 0.1s;
+    }
+    .rp-btn.active-c { background: var(--spm-accent); color: #fff; border-color: var(--spm-accent); }
+    .rp-btn.active-cc { background: #6c757d; color: #fff; border-color: #6c757d; }
+    .rp-btn.on-roster { background: #d4edda; color: #155724; border-color: #28a745; }
+    .rp-btn.off-roster { background: #f8d7da; color: #721c24; border-color: #dc3545; }
+    .rp-remove {
+      position: absolute; top: 6px; right: 8px; background: none; border: none;
+      color: var(--spm-primary); cursor: pointer; font-size: 1.1rem; padding: 2px 6px;
+    }
+    .roster-count { font-size: 0.8rem; color: var(--muted); text-align: center; margin-top: 4px; }
+    .roster-count.full { color: var(--spm-primary); }
+
+    /* ── Action Bar ───────────────────────────────────────────────── */
+    .action-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 20px; }
+    .action-bar .spm-btn { flex: 1; min-width: 120px; }
+
+    /* ── Modals ────────────────────────────────────────────────────── */
     .loading-modal {
       position: fixed; inset: 0; background: rgba(0,0,0,0.55);
       display: none; align-items: center; justify-content: center; z-index: 9999;
@@ -54,8 +127,6 @@
       animation: spin 0.8s linear infinite; margin: 0 auto 16px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── Toast ─────────────────────────────────────────────────────── */
     .toast-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.55);
       display: none; align-items: center; justify-content: center; z-index: 10000; padding: 20px;
@@ -67,6 +138,7 @@
     }
     .toast-icon { font-size: 2.5rem; margin-bottom: 8px; }
     .toast-icon.error { color: var(--spm-primary); }
+    .toast-icon.success { color: #28a745; }
     .toast-msg { font-size: 0.95rem; font-weight: 500; margin-bottom: 16px; line-height: 1.4; }
 
     .hidden { display: none !important; }
@@ -77,20 +149,19 @@
   <div class="spm-header">
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
-      <div class="subtitle" id="appName">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.6</div>
+      <div class="subtitle">Team Registration</div>
+      <div class="app-pill">Session Registration &middot; v0.7</div>
     </div>
   </div>
 
-  <!-- ═══ Auth Screen ═══ -->
+  <!-- ═══ Screen: Auth ═══ -->
   <div id="screenAuth">
     <div class="auth-wrap">
       <div class="spm-card">
         <h2 style="margin:0 0 4px">Find Your Account</h2>
         <p>Enter your APA number or email address.</p>
         <div class="auth-row">
-          <input type="text" id="authInput" placeholder="APA # or email"
-                 onkeydown="if(event.key==='Enter')doLookup()">
+          <input type="text" id="authInput" placeholder="APA # or email" onkeydown="if(event.key==='Enter')doLookup()">
           <button class="spm-btn spm-btn-primary" onclick="doLookup()">Look Up</button>
         </div>
         <div class="auth-error" id="authError"></div>
@@ -98,12 +169,41 @@
     </div>
   </div>
 
-  <!-- ═══ Player Screen ═══ -->
-  <div id="screenPlayer" class="hidden">
-    <div class="spm-card player-card" id="playerCard"></div>
-    <div style="text-align:center;margin-top:16px">
-      <button class="spm-btn spm-btn-secondary" onclick="showAuth()">Look Up Another</button>
+  <!-- ═══ Screen: Dashboard ═══ -->
+  <div id="screenDash" class="hidden">
+    <div id="greetingArea"></div>
+    <div class="spm-card">
+      <div id="teamsArea"></div>
     </div>
+    <div class="dash-actions">
+      <button class="spm-btn spm-btn-primary" onclick="showScreen('screenFormats')">Register a Team</button>
+    </div>
+    <div style="text-align:center;margin-top:8px">
+      <button class="spm-btn spm-btn-secondary" onclick="showScreen('screenAuth')" style="font-size:0.85rem;padding:8px 16px">Sign Out</button>
+    </div>
+  </div>
+
+  <!-- ═══ Screen: Format Selection ═══ -->
+  <div id="screenFormats" class="hidden">
+    <div class="greeting" style="margin-bottom:16px">Choose a format</div>
+    <div class="format-grid">
+      <div class="format-btn" onclick="startRegistration('DJ')">Double Jeopardy</div>
+      <div class="format-btn" onclick="startRegistration('8-Ball Open')">8-Ball Open</div>
+      <div class="format-btn" onclick="startRegistration('9-Ball Open')">9-Ball Open</div>
+      <div class="format-btn" onclick="startRegistration('DJ Doubles')">DJ Doubles</div>
+      <div class="format-btn" onclick="startRegistration('8-Ball Doubles')">8-Ball Doubles</div>
+      <div class="format-btn" onclick="startRegistration('9-Ball Doubles')">9-Ball Doubles</div>
+      <div class="format-btn" onclick="startRegistration('Masters')">Masters</div>
+      <div class="format-btn" onclick="startRegistration('Ladies')">Ladies</div>
+    </div>
+    <div style="text-align:center;margin-top:16px">
+      <button class="spm-btn spm-btn-secondary" onclick="showScreen('screenDash')">Back</button>
+    </div>
+  </div>
+
+  <!-- ═══ Screen: Registration Form ═══ -->
+  <div id="screenRegForm" class="hidden">
+    <div class="spm-card reg-form" id="regFormContent"></div>
   </div>
 
   <div class="spm-footer">South Portland Metro APA</div>
@@ -128,27 +228,40 @@
 
 <script>
 // ════════════════════════════════════════════════════════════════════
+// Config
+// ════════════════════════════════════════════════════════════════════
 var SUPABASE_URL = 'https://dqzbekoaysgaiqljueac.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxemJla29heXNnYWlxbGp1ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNzA5NzgsImV4cCI6MjA5MDc0Njk3OH0.cCdGxZ4zEFzU_r6lWSDeoNWG67Q4MSYCAtpds035dfU';
+var SB_HEADERS = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY };
+var MAX_ROSTER = 8;
 
+// ════════════════════════════════════════════════════════════════════
+// State
+// ════════════════════════════════════════════════════════════════════
+var currentPlayer = null;
+var selectedFormat = '';
+var isDJ = false;
+var roster = [];
+// Each roster entry:
+// { memberNumber, firstName, nickname, lastName,
+//   onRoster8: bool, onRoster9: bool,       (DJ only)
+//   role8: 'Player'|'Captain'|'Co-Captain', (DJ only)
+//   role: 'Player'|'Captain'|'Co-Captain'   (non-DJ only)
+// }
+
+// ════════════════════════════════════════════════════════════════════
+// Utilities
+// ════════════════════════════════════════════════════════════════════
 function esc(s) { var d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
 function showLoading() { document.getElementById('loadingModal').classList.add('active'); }
 function hideLoading() { document.getElementById('loadingModal').classList.remove('active'); }
 function showToast(msg, type) {
-  document.getElementById('toastIcon').innerHTML = type === 'error' ? '&#10007;' : '&#9888;';
+  document.getElementById('toastIcon').innerHTML = type === 'error' ? '&#10007;' : type === 'success' ? '&#10003;' : '&#9888;';
   document.getElementById('toastIcon').className = 'toast-icon ' + (type || 'error');
   document.getElementById('toastMsg').textContent = msg;
   document.getElementById('toastOverlay').classList.add('active');
 }
 function hideToast() { document.getElementById('toastOverlay').classList.remove('active'); }
-
-function showAuth() {
-  document.getElementById('screenAuth').classList.remove('hidden');
-  document.getElementById('screenPlayer').classList.add('hidden');
-  document.getElementById('authError').textContent = '';
-  document.getElementById('authInput').value = '';
-  document.getElementById('authInput').focus();
-}
 
 function normalizeApa(raw) {
   var digits = String(raw || '').replace(/\D/g, '');
@@ -161,31 +274,37 @@ function normalizeApa(raw) {
   return isNaN(num) ? '' : String(num);
 }
 
+function showScreen(id) {
+  ['screenAuth', 'screenDash', 'screenFormats', 'screenRegForm'].forEach(function(s) {
+    document.getElementById(s).classList.toggle('hidden', s !== id);
+  });
+}
+
+function playerDisplayName(p) {
+  var name = esc(p.firstName || p.first_name || '');
+  var nick = p.nickname || '';
+  var last = esc(p.lastName || p.last_name || '');
+  if (nick) name += ' <span class="nick">"' + esc(nick) + '"</span>';
+  return name + ' ' + last;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Auth / Lookup
+// ════════════════════════════════════════════════════════════════════
 async function doLookup() {
   var raw = document.getElementById('authInput').value.trim();
   if (!raw) { document.getElementById('authError').textContent = 'Please enter your APA number or email.'; return; }
-
   document.getElementById('authError').textContent = '';
   showLoading();
 
   try {
     var isEmail = raw.indexOf('@') !== -1;
-    var query;
-    if (isEmail) {
-      var normalized = raw.replace(/\s/g, '').toLowerCase();
-      query = 'email=eq.' + encodeURIComponent(normalized);
-    } else {
-      var apa = normalizeApa(raw);
-      if (!apa) { hideLoading(); document.getElementById('authError').textContent = 'Invalid APA number.'; return; }
-      query = 'member_number=eq.' + encodeURIComponent(apa);
-    }
+    var query = isEmail
+      ? 'email=eq.' + encodeURIComponent(raw.replace(/\s/g, '').toLowerCase())
+      : 'member_number=eq.' + encodeURIComponent(normalizeApa(raw));
 
-    var resp = await fetch(SUPABASE_URL + '/rest/v1/player_full?' + query, {
-      headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY }
-    });
-
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/player_full?' + query, { headers: SB_HEADERS });
     if (!resp.ok) throw new Error('Server error: ' + resp.status);
-
     var data = await resp.json();
     hideLoading();
 
@@ -194,72 +313,291 @@ async function doLookup() {
       return;
     }
 
-    renderPlayer(data[0]);
+    currentPlayer = data[0];
+    renderDashboard();
+    showScreen('screenDash');
   } catch (e) {
     hideLoading();
     showToast('Network error: ' + e.message, 'error');
   }
 }
 
-function renderPlayer(p) {
-  var html = '';
+// ════════════════════════════════════════════════════════════════════
+// Dashboard
+// ════════════════════════════════════════════════════════════════════
+function renderDashboard() {
+  var p = currentPlayer;
+  document.getElementById('greetingArea').innerHTML =
+    '<div class="greeting">Hello <strong>' + playerDisplayName(p) + '</strong></div>';
 
-  // Name + member number
-  html += '<div class="player-name">' + esc(p.first_name) + ' ' + esc(p.last_name) + '</div>';
-  if (p.nickname) html += '<div class="player-nickname">"' + esc(p.nickname) + '"</div>';
-  html += '<div class="player-member">APA #' + esc(p.member_number) + '</div>';
-
-  // Contact info
-  html += '<div class="info-grid">';
-  if (p.email) html += infoItem('Email', p.email);
-  if (p.cell_phone) html += infoItem('Cell', p.cell_phone);
-  if (p.home_phone) html += infoItem('Home', p.home_phone);
-  if (p.work_phone) html += infoItem('Work', p.work_phone);
-  if (p.alt_phone) html += infoItem('Alt Phone', p.alt_phone);
-  html += '</div>';
-
-  // Skill levels
-  if (p.skill_level_8 || p.skill_level_9) {
-    html += '<div class="section-divider"></div>';
-    html += '<div class="info-grid">';
-    if (p.skill_level_8) html += infoItem('8-Ball SL', p.skill_level_8);
-    if (p.skill_level_9) html += infoItem('9-Ball SL', p.skill_level_9);
-    if (p.gender) html += infoItem('Gender', p.gender);
-    html += '</div>';
-  }
-
-  // Address
-  if (p.address_1 || p.city) {
-    html += '<div class="section-divider"></div>';
-    var addr = [p.address_1, p.address_2].filter(Boolean).join(', ');
-    var cityLine = [p.city, p.state].filter(Boolean).join(', ') + (p.zip ? ' ' + p.zip : '');
-    html += '<div class="info-grid">';
-    if (addr) html += infoItem('Address', addr);
-    if (cityLine.trim()) html += infoItem('City/State', cityLine);
-    if (p.county) html += infoItem('County', p.county);
-    html += '</div>';
-  }
-
-  // Membership
-  if (p.member_status || p.period_joined || p.member_type) {
-    html += '<div class="section-divider"></div>';
-    html += '<div class="info-grid">';
-    if (p.member_status) html += infoItem('Status', p.member_status);
-    if (p.member_type) html += infoItem('Type', p.member_type);
-    if (p.period_joined) html += infoItem('Joined', p.period_joined);
-    if (p.date_started) html += infoItem('Started', p.date_started);
-    if (p.last_played_8) html += infoItem('Last 8-Ball', p.last_played_8);
-    if (p.last_played_9) html += infoItem('Last 9-Ball', p.last_played_9);
-    html += '</div>';
-  }
-
-  document.getElementById('playerCard').innerHTML = html;
-  document.getElementById('screenAuth').classList.add('hidden');
-  document.getElementById('screenPlayer').classList.remove('hidden');
+  // TODO: load registered teams from Supabase when tables exist
+  document.getElementById('teamsArea').innerHTML =
+    '<div class="empty-state">No teams registered for Summer \'26</div>';
 }
 
-function infoItem(label, value) {
-  return '<div class="info-item"><label>' + esc(label) + '</label><span>' + esc(value) + '</span></div>';
+// ════════════════════════════════════════════════════════════════════
+// Format Selection → Registration Form
+// ════════════════════════════════════════════════════════════════════
+function startRegistration(format) {
+  selectedFormat = format;
+  isDJ = (format === 'DJ');
+  roster = [];
+  renderRegForm();
+  showScreen('screenRegForm');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Registration Form Rendering
+// ════════════════════════════════════════════════════════════════════
+function renderRegForm() {
+  var html = '<h2 style="margin:0 0 16px">Register: ' + esc(selectedFormat === 'DJ' ? 'Double Jeopardy' : selectedFormat) + '</h2>';
+
+  // Team name
+  html += '<div class="form-group"><label>Team Name</label>';
+  html += '<input type="text" id="regTeamName" value="' + esc(document.getElementById('regTeamName') ? document.getElementById('regTeamName').value : '') + '"></div>';
+
+  // Day of play
+  html += '<div class="form-group"><label>Day of Play</label>';
+  html += '<select id="regDay"><option value="">-- Select --</option>';
+  ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'].forEach(function(d) {
+    var sel = (document.getElementById('regDay') && document.getElementById('regDay').value === d) ? ' selected' : '';
+    html += '<option' + sel + '>' + d + '</option>';
+  });
+  html += '</select></div>';
+
+  // Host location
+  html += '<div class="form-group"><label>Host Location / Area</label>';
+  html += '<input type="text" id="regHost" value="' + esc(document.getElementById('regHost') ? document.getElementById('regHost').value : '') + '" placeholder="Venue name or area"></div>';
+
+  // Add player input
+  html += '<div class="add-row">';
+  html += '<input type="text" id="addPlayerInput" placeholder="Enter APA # to add player" onkeydown="if(event.key===\'Enter\')addPlayer()">';
+  html += '<button class="spm-btn spm-btn-primary" onclick="addPlayer()">Add</button>';
+  html += '</div>';
+
+  // Roster
+  if (isDJ) {
+    html += renderDJRoster();
+  } else {
+    html += renderSingleRoster();
+  }
+
+  // Actions
+  html += '<div class="action-bar">';
+  html += '<button class="spm-btn spm-btn-primary" onclick="submitRegistration()">Submit Registration</button>';
+  html += '<button class="spm-btn spm-btn-secondary" onclick="showScreen(\'screenFormats\')">Back</button>';
+  html += '</div>';
+
+  document.getElementById('regFormContent').innerHTML = html;
+}
+
+function renderDJRoster() {
+  var count8 = roster.filter(function(r) { return r.onRoster8; }).length;
+  var count9 = roster.filter(function(r) { return r.onRoster9; }).length;
+
+  var html = '<div class="roster-columns">';
+
+  // 8-ball column
+  html += '<div class="roster-col">';
+  html += '<div class="ball-header"><div class="ball ball-8">8</div><span class="ball-label">8-Ball</span></div>';
+  for (var i = 0; i < roster.length; i++) {
+    html += renderDJPlayerCard(i, '8');
+  }
+  html += '<div class="roster-count' + (count8 >= MAX_ROSTER ? ' full' : '') + '">' + count8 + ' / ' + MAX_ROSTER + '</div>';
+  html += '</div>';
+
+  // 9-ball column
+  html += '<div class="roster-col">';
+  html += '<div class="ball-header"><div class="ball ball-9"><span>9</span></div><span class="ball-label">9-Ball</span></div>';
+  for (var j = 0; j < roster.length; j++) {
+    html += renderDJPlayerCard(j, '9');
+  }
+  html += '<div class="roster-count' + (count9 >= MAX_ROSTER ? ' full' : '') + '">' + count9 + ' / ' + MAX_ROSTER + '</div>';
+  html += '</div>';
+
+  html += '</div>';
+  return html;
+}
+
+function renderDJPlayerCard(idx, col) {
+  var p = roster[idx];
+  var onRoster = col === '8' ? p.onRoster8 : p.onRoster9;
+  var role = col === '8' ? p.role8 : p.role9;
+  var cls = onRoster ? '' : ' off-roster';
+
+  var html = '<div class="rp-card' + cls + '">';
+  html += '<div class="rp-name">' + playerDisplayName(p) + '</div>';
+  html += '<div class="rp-member">#' + esc(p.memberNumber) + '</div>';
+
+  html += '<div class="rp-controls">';
+  // On/Off Roster toggle
+  if (onRoster) {
+    html += '<button class="rp-btn on-roster" onclick="toggleRoster(' + idx + ',\'' + col + '\')">On Roster</button>';
+    // Captain / Co-Captain
+    html += '<button class="rp-btn' + (role === 'Captain' ? ' active-c' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Captain\')">C</button>';
+    html += '<button class="rp-btn' + (role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Co-Captain\')">CC</button>';
+  } else {
+    html += '<button class="rp-btn off-roster" onclick="toggleRoster(' + idx + ',\'' + col + '\')">Off Roster</button>';
+  }
+  html += '</div>';
+
+  // Remove button (only in 8-ball column to avoid double)
+  if (col === '8') {
+    html += '<button class="rp-remove" onclick="removePlayer(' + idx + ')" title="Remove">&times;</button>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function renderSingleRoster() {
+  var count = roster.length;
+  var html = '';
+
+  for (var i = 0; i < roster.length; i++) {
+    var p = roster[i];
+    html += '<div class="rp-card">';
+    html += '<div class="rp-name">' + playerDisplayName(p) + '</div>';
+    html += '<div class="rp-member">#' + esc(p.memberNumber) + '</div>';
+    html += '<div class="rp-controls">';
+    html += '<button class="rp-btn' + (p.role === 'Captain' ? ' active-c' : '') + '" onclick="setSingleRole(' + i + ',\'Captain\')">C</button>';
+    html += '<button class="rp-btn' + (p.role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setSingleRole(' + i + ',\'Co-Captain\')">CC</button>';
+    html += '</div>';
+    html += '<button class="rp-remove" onclick="removePlayer(' + i + ')" title="Remove">&times;</button>';
+    html += '</div>';
+  }
+
+  html += '<div class="roster-count' + (count >= MAX_ROSTER ? ' full' : '') + '">' + count + ' / ' + MAX_ROSTER + '</div>';
+  return html;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Roster Actions
+// ════════════════════════════════════════════════════════════════════
+async function addPlayer() {
+  var input = document.getElementById('addPlayerInput');
+  var raw = input.value.trim();
+  if (!raw) return;
+
+  var apa = normalizeApa(raw);
+  if (!apa) { showToast('Invalid APA number.', 'error'); return; }
+
+  // Check duplicate
+  for (var i = 0; i < roster.length; i++) {
+    if (roster[i].memberNumber === apa) { showToast('Player already on roster.', 'warn'); return; }
+  }
+
+  // Check max (for non-DJ, simple check; for DJ, check both columns)
+  if (!isDJ && roster.length >= MAX_ROSTER) {
+    showToast('Roster is full (' + MAX_ROSTER + ' max).', 'warn'); return;
+  }
+  if (isDJ) {
+    var c8 = roster.filter(function(r) { return r.onRoster8; }).length;
+    var c9 = roster.filter(function(r) { return r.onRoster9; }).length;
+    if (c8 >= MAX_ROSTER && c9 >= MAX_ROSTER) {
+      showToast('Both rosters are full (' + MAX_ROSTER + ' max each).', 'warn'); return;
+    }
+  }
+
+  showLoading();
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/player_full?member_number=eq.' + encodeURIComponent(apa), { headers: SB_HEADERS });
+    if (!resp.ok) throw new Error('Server error');
+    var data = await resp.json();
+    hideLoading();
+
+    if (!data || data.length === 0) {
+      showToast('APA #' + apa + ' not found in player database.', 'error');
+      return;
+    }
+
+    var p = data[0];
+    var entry = {
+      memberNumber: apa,
+      firstName: p.first_name || '',
+      nickname: p.nickname || '',
+      lastName: p.last_name || ''
+    };
+
+    if (isDJ) {
+      entry.onRoster8 = true;
+      entry.onRoster9 = true;
+      entry.role8 = 'Player';
+      entry.role9 = 'Player';
+    } else {
+      entry.role = 'Player';
+    }
+
+    roster.push(entry);
+    input.value = '';
+    renderRegForm();
+  } catch (e) {
+    hideLoading();
+    showToast('Network error.', 'error');
+  }
+}
+
+function removePlayer(idx) {
+  roster.splice(idx, 1);
+  renderRegForm();
+}
+
+function toggleRoster(idx, col) {
+  if (col === '8') {
+    var newVal = !roster[idx].onRoster8;
+    roster[idx].onRoster8 = newVal;
+    if (!newVal) roster[idx].role8 = 'Player'; // clear role when off roster
+  } else {
+    var newVal9 = !roster[idx].onRoster9;
+    roster[idx].onRoster9 = newVal9;
+    if (!newVal9) roster[idx].role9 = 'Player';
+  }
+
+  // Check max
+  var count = roster.filter(function(r) { return col === '8' ? r.onRoster8 : r.onRoster9; }).length;
+  if (count > MAX_ROSTER) {
+    // Revert
+    if (col === '8') roster[idx].onRoster8 = false;
+    else roster[idx].onRoster9 = false;
+    showToast('Max ' + MAX_ROSTER + ' players per roster.', 'warn');
+  }
+
+  renderRegForm();
+}
+
+function setDJRole(idx, col, role) {
+  var key = col === '8' ? 'role8' : 'role9';
+  // Toggle off if clicking same role
+  if (roster[idx][key] === role) { roster[idx][key] = 'Player'; renderRegForm(); return; }
+  // Clear this role from others
+  for (var i = 0; i < roster.length; i++) {
+    if (roster[i][key] === role) roster[i][key] = 'Player';
+  }
+  roster[idx][key] = role;
+  renderRegForm();
+}
+
+function setSingleRole(idx, role) {
+  if (roster[idx].role === role) { roster[idx].role = 'Player'; renderRegForm(); return; }
+  for (var i = 0; i < roster.length; i++) {
+    if (roster[i].role === role) roster[i].role = 'Player';
+  }
+  roster[idx].role = role;
+  renderRegForm();
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Submit (placeholder — DB tables not yet created)
+// ════════════════════════════════════════════════════════════════════
+function submitRegistration() {
+  var teamName = document.getElementById('regTeamName').value.trim();
+  var day = document.getElementById('regDay').value;
+  if (!teamName) { showToast('Team name is required.', 'warn'); return; }
+  if (!day) { showToast('Please select a day of play.', 'warn'); return; }
+
+  // TODO: validate captain assigned, write to Supabase
+  showToast('Registration submitted! (DB not yet wired)', 'success');
+  setTimeout(function() { hideToast(); showScreen('screenDash'); }, 2000);
 }
 </script>
 </body>

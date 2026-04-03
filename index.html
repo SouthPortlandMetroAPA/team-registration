@@ -320,7 +320,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.52</div>
+      <div class="app-pill">Session Registration &middot; v0.53</div>
     </div>
   </div>
 
@@ -821,9 +821,9 @@ async function renderDashboard() {
       html += '<button class="team-pill" onclick="' + action + '">';
       html += '<div class="pill-top">';
       html += '<span class="pill-format" style="background:' + badge.bg + ';color:' + badge.color + '">' + esc(reg.format) + '</span>';
-      if (dayTime) html += '<span class="pill-day">' + esc(dayTime) + '</span>';
       html += '</div>';
       html += '<div class="pill-name">' + esc(reg.team_name) + '</div>';
+      if (dayTime) html += '<div class="pill-day">' + esc(dayTime) + '</div>';
       if (areas) html += '<div class="pill-loc">\u{1F4CD} ' + esc(areas) + '</div>';
       html += '</button>';
     }

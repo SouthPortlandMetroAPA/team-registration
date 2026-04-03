@@ -100,7 +100,7 @@
     <div id="previewArea"></div>
     <div class="import-actions">
       <button class="spm-btn spm-btn-secondary" onclick="previewImport()">Preview</button>
-      <button class="spm-btn spm-btn-primary" id="importBtn" onclick="executeImport()" disabled>Import</button>
+      <button class="spm-btn spm-btn-primary" id="importBtn" onclick="executeImport()">Import</button>
       <span class="import-status" id="importStatus"></span>
     </div>
   </div>
@@ -260,7 +260,12 @@ function previewImport() {
 // ════════════════════════════════════════════════════════════════════
 async function executeImport() {
   if (!SERVICE_KEY) { setStatus('Admin key required. Add ?key=... to URL.', 'error'); return; }
-  if (parsedRows.length === 0) { setStatus('No data to import.', 'error'); return; }
+
+  // Auto-parse if Preview wasn't clicked
+  if (parsedRows.length === 0) {
+    previewImport();
+    if (parsedRows.length === 0) { setStatus('No valid data to import.', 'error'); return; }
+  }
 
   document.getElementById('importBtn').disabled = true;
   setStatus('Importing ' + parsedRows.length + ' players...', '');

@@ -370,7 +370,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.67</div>
+      <div class="app-pill">Session Registration &middot; v0.68</div>
     </div>
   </div>
 
@@ -631,6 +631,22 @@ function playerDisplayName(p) {
   return name + ' ' + last;
 }
 
+// Build a PostgREST filter for name searches. Splits multi-word queries
+// so "John Smith" matches first_name~John AND last_name~Smith.
+function buildNameFilter(query) {
+  var words = query.split(/\s+/).filter(function(w) { return w.length > 0; });
+  if (words.length === 1) {
+    var q = encodeURIComponent('%' + words[0] + '%');
+    return 'or=(first_name.ilike.' + q + ',nickname.ilike.' + q + ',last_name.ilike.' + q + ')';
+  }
+  // Each word must match at least one name field (AND of ORs)
+  var parts = words.map(function(w) {
+    var q = encodeURIComponent('%' + w + '%');
+    return 'or(first_name.ilike.' + q + ',nickname.ilike.' + q + ',last_name.ilike.' + q + ')';
+  });
+  return 'and=(' + parts.join(',') + ')';
+}
+
 // ════════════════════════════════════════════════════════════════════
 // Auth / Lookup
 // ════════════════════════════════════════════════════════════════════
@@ -669,8 +685,7 @@ async function doAuthACSearch(query) {
   if (isNum) {
     filter = 'member_number=like.*' + encodeURIComponent(query) + '*';
   } else {
-    var q = encodeURIComponent('%' + query + '%');
-    filter = 'or=(first_name.ilike.' + q + ',nickname.ilike.' + q + ',last_name.ilike.' + q + ')';
+    filter = buildNameFilter(query);
   }
   try {
     var resp = await fetch(SUPABASE_URL + '/rest/v1/player_full?' + filter + '&limit=8&order=last_name,first_name', { headers: SB_HEADERS });
@@ -1329,8 +1344,7 @@ async function doACSearch(query) {
   if (isNum) {
     filter = 'member_number=like.*' + encodeURIComponent(query) + '*';
   } else {
-    var q = encodeURIComponent('%' + query + '%');
-    filter = 'or=(first_name.ilike.' + q + ',nickname.ilike.' + q + ',last_name.ilike.' + q + ')';
+    filter = buildNameFilter(query);
   }
 
   // Ladies format: only show female players (gender values are M/F in DB)

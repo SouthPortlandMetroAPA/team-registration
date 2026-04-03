@@ -55,21 +55,24 @@
     .empty-state { text-align: center; color: var(--muted); padding: 32px 16px; font-size: 0.95rem; }
     .dash-actions { text-align: center; margin-top: 16px; }
 
-    /* ── Team Pills (Playoffs style) ──────────────────────────────── */
-    .team-pills { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    /* ── Team Cards (stacked info) ───────────────────────────────── */
+    .team-pills { display: flex; flex-direction: column; gap: 10px; }
     .team-pill {
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      width: 100%; padding: 12px 20px; border: 2px solid var(--spm-accent);
-      border-radius: 12px; background: #fff; color: var(--spm-accent);
-      font-weight: 800; font-size: 0.9375rem; letter-spacing: 0.02em;
-      font-family: inherit; cursor: pointer;
+      display: flex; align-items: center; gap: 12px;
+      width: 100%; padding: 14px 18px; border: 2px solid var(--spm-accent);
+      border-radius: 14px; background: #fff; color: var(--text);
+      font-family: inherit; cursor: pointer; text-align: left;
       transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
       min-height: 48px; box-shadow: 0 2px 8px rgba(0,49,161,0.12);
     }
-    .team-pill::after { content: '→'; font-size: 1.1em; opacity: 0.5; flex-shrink: 0; }
-    .team-pill:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,49,161,0.2); background: rgba(0,49,161,0.04); }
-    .team-pill:active { background: var(--spm-accent); color: #fff; }
-    .team-pill .pill-sub { font-weight: 400; font-size: 0.8rem; opacity: 0.7; }
+    .team-pill::after { content: '→'; font-size: 1.1em; opacity: 0.35; flex-shrink: 0; color: var(--spm-accent); }
+    .team-pill:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,49,161,0.2); background: rgba(0,49,161,0.03); }
+    .team-pill:active { background: rgba(0,49,161,0.06); }
+    .pill-info { flex: 1; min-width: 0; }
+    .pill-name { font-weight: 800; font-size: 0.95rem; color: var(--spm-accent); }
+    .pill-detail { font-size: 0.8rem; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+    .pill-detail .pill-day { font-weight: 600; color: var(--text); }
+    .pill-detail .pill-loc { font-weight: 400; }
 
     /* ── Format Selection ─────────────────────────────────────────── */
     .format-grid {
@@ -313,7 +316,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.47</div>
+      <div class="app-pill">Session Registration &middot; v0.48</div>
     </div>
   </div>
 
@@ -346,26 +349,17 @@
       <div id="teamsArea"></div>
     </div>
     <div class="dash-actions">
-      <button class="spm-btn spm-btn-primary" onclick="showScreen('screenFormats')">Register a Team</button>
+      <button class="spm-btn spm-btn-primary" onclick="showFormatsScreen()">Register a Team</button>
     </div>
     <div style="text-align:center;margin-top:8px">
-      <button class="spm-btn spm-btn-secondary" onclick="showScreen('screenAuth')" style="font-size:0.85rem;padding:8px 16px">Sign Out</button>
+      <button class="spm-btn spm-btn-secondary" onclick="signOut()" style="font-size:0.85rem;padding:8px 16px">Sign Out</button>
     </div>
   </div>
 
   <!-- ═══ Screen: Format Selection ═══ -->
   <div id="screenFormats" class="hidden">
     <div class="greeting" style="margin-bottom:16px">Choose a format</div>
-    <div class="format-grid">
-      <div class="format-btn" onclick="startRegistration('Double Jeopardy')">Double Jeopardy</div>
-      <div class="format-btn" onclick="startRegistration('8-Ball Open')">8-Ball Open</div>
-      <div class="format-btn" onclick="startRegistration('9-Ball Open')">9-Ball Open</div>
-      <div class="format-btn" onclick="startRegistration('Double Jeopardy Doubles')">DJ Doubles</div>
-      <div class="format-btn" onclick="startRegistration('8-Ball Doubles')">8-Ball Doubles</div>
-      <div class="format-btn" onclick="startRegistration('9-Ball Doubles')">9-Ball Doubles</div>
-      <div class="format-btn" onclick="startRegistration('Masters')">Masters</div>
-      <div class="format-btn" onclick="startRegistration('Ladies')">Ladies</div>
-    </div>
+    <div class="format-grid" id="formatGrid"></div>
     <div style="text-align:center;margin-top:16px">
       <button class="spm-btn spm-btn-secondary" onclick="showScreen('screenDash')">Back</button>
     </div>
@@ -374,7 +368,7 @@
   <!-- ═══ Screen: View Registration (read-only) ═══ -->
   <div id="screenView" class="hidden">
     <div class="spm-card" id="viewContent"></div>
-    <div style="text-align:center;margin-top:12px">
+    <div style="text-align:center;margin-top:12px;display:flex;gap:8px;justify-content:center" id="viewActions">
       <button class="spm-btn spm-btn-secondary" onclick="showScreen('screenDash')">Back</button>
     </div>
   </div>
@@ -465,6 +459,26 @@ async function loadDivisions() {
   } catch (e) { /* silent */ }
 }
 loadDivisions();
+
+// Sign out: clear saved login and return to auth screen
+function signOut() {
+  try { localStorage.removeItem('teamreg_lastLogin'); } catch (e) {}
+  currentPlayer = null;
+  document.getElementById('authInput').value = '';
+  showScreen('screenAuth');
+}
+
+// Auto-login: if we have a saved member number, prefill and run lookup
+(async function autoLogin() {
+  try {
+    var saved = localStorage.getItem('teamreg_lastLogin');
+    if (saved) {
+      document.getElementById('authInput').value = saved;
+      doLookup();
+    }
+  } catch (e) {}
+})();
+
 // Each roster entry:
 // { memberNumber, firstName, nickname, lastName,
 //   onRoster8: bool, onRoster9: bool,       (DJ only)
@@ -727,6 +741,7 @@ async function doLookup() {
     }
 
     currentPlayer = data[0];
+    try { localStorage.setItem('teamreg_lastLogin', currentPlayer.member_number); } catch (e) {}
     renderDashboard();
     showScreen('screenDash');
   } catch (e) {
@@ -791,7 +806,21 @@ async function renderDashboard() {
       var reg = regs[t];
       var isSubmitter = reg.submitted_by === p.member_number;
       var action = isSubmitter ? 'editRegistration(' + reg.id + ')' : 'viewRegistration(' + reg.id + ')';
-      html += '<button class="team-pill" onclick="' + action + '">' + esc(reg.team_name) + ' <span class="pill-sub">' + esc(reg.format) + '</span></button>';
+      var div = cachedDivisions.find(function(d) { return d.id === reg.division_id; });
+      var dayTime = div ? div.day + (div.time ? ' ' + div.time : '') : '';
+      var areas = div ? (div.areas || '') : '';
+      html += '<button class="team-pill" onclick="' + action + '">';
+      html += '<div class="pill-info">';
+      html += '<div class="pill-name">' + esc(reg.team_name) + ' <span style="font-weight:400;opacity:0.6">' + esc(reg.format) + '</span></div>';
+      if (dayTime || areas) {
+        html += '<div class="pill-detail">';
+        if (dayTime) html += '<span class="pill-day">' + esc(dayTime) + '</span>';
+        if (dayTime && areas) html += ' &middot; ';
+        if (areas) html += '<span class="pill-loc">' + esc(areas) + '</span>';
+        html += '</div>';
+      }
+      html += '</div>';
+      html += '</button>';
     }
     html += '</div>';
 
@@ -811,8 +840,54 @@ function startRegistration(format) {
   roster = [];
   editingRegId = null;
   regInProgress = true;
+
+  // Clear stale form values so they don't carry over from a previous registration
+  var oldName = document.getElementById('regTeamName'); if (oldName) oldName.value = '';
+  var oldDiv = document.getElementById('regDivision'); if (oldDiv) oldDiv.value = '';
+  var oldHost = document.getElementById('regHost'); if (oldHost) oldHost.value = '';
+
   renderRegForm();
   showScreen('screenRegForm');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Format Selection — only show formats that have divisions
+// ════════════════════════════════════════════════════════════════════
+function showFormatsScreen() {
+  // Collect formats that have at least one division in cachedDivisions
+  var availableFormats = {};
+  for (var i = 0; i < cachedDivisions.length; i++) {
+    availableFormats[cachedDivisions[i].format] = true;
+  }
+
+  // Preferred display order
+  var formatOrder = [
+    'Double Jeopardy', '8-Ball Open', '9-Ball Open',
+    'Double Jeopardy Doubles', '8-Ball Doubles', '9-Ball Doubles',
+    'Masters', 'Ladies'
+  ];
+
+  var html = '';
+  for (var f = 0; f < formatOrder.length; f++) {
+    var fmt = formatOrder[f];
+    if (!availableFormats[fmt]) continue;
+    // Short label for button display
+    var label = fmt.replace('Double Jeopardy Doubles', 'DJ Doubles').replace('Double Jeopardy', 'Double Jeopardy');
+    html += '<div class="format-btn" onclick="startRegistration(\'' + esc(fmt).replace(/'/g, "\\'") + '\')">' + esc(label) + '</div>';
+  }
+
+  // Also include any format in divisions not in our hardcoded order
+  var extraFormats = Object.keys(availableFormats);
+  for (var e = 0; e < extraFormats.length; e++) {
+    if (formatOrder.indexOf(extraFormats[e]) === -1) {
+      html += '<div class="format-btn" onclick="startRegistration(\'' + esc(extraFormats[e]).replace(/'/g, "\\'") + '\')">' + esc(extraFormats[e]) + '</div>';
+    }
+  }
+
+  if (!html) html = '<div style="text-align:center;color:var(--muted);padding:16px">No formats available for registration.</div>';
+
+  document.getElementById('formatGrid').innerHTML = html;
+  showScreen('screenFormats');
 }
 
 // ════════════════════════════════════════════════════════════════════
@@ -1111,6 +1186,11 @@ async function doACSearch(query) {
     filter = 'or=(first_name.ilike.' + q + ',nickname.ilike.' + q + ',last_name.ilike.' + q + ')';
   }
 
+  // Ladies format: only show female players
+  if (selectedFormat === 'Ladies') {
+    filter += '&gender=eq.Female';
+  }
+
   try {
     var resp = await fetch(SUPABASE_URL + '/rest/v1/player_full?' + filter + '&limit=10&order=last_name,first_name', { headers: SB_HEADERS });
     if (!resp.ok) return;
@@ -1242,6 +1322,13 @@ async function addPlayer() {
     }
 
     var p = data[0];
+
+    // Ladies format: reject non-female players
+    if (selectedFormat === 'Ladies' && p.gender !== 'Female') {
+      showToast('Ladies format requires female players.', 'warn');
+      return;
+    }
+
     var entry = {
       memberNumber: apa,
       firstName: p.first_name || '',
@@ -1505,6 +1592,14 @@ function viewRegistration(regId) {
   }
 
   document.getElementById('viewContent').innerHTML = html;
+
+  // Show delete button if this player submitted the registration
+  var actionsHtml = '<button class="spm-btn spm-btn-secondary" onclick="showScreen(\'screenDash\')">Back</button>';
+  if (reg.submitted_by === currentPlayer.member_number) {
+    actionsHtml += '<button class="spm-btn spm-btn-danger" onclick="deleteRegistration(' + regId + ')" style="background:#dc3545;color:#fff;border-color:#dc3545">Delete</button>';
+  }
+  document.getElementById('viewActions').innerHTML = actionsHtml;
+
   showScreen('screenView');
 }
 
@@ -1603,6 +1698,31 @@ async function editRegistration(regId) {
     }, 0);
 
     showScreen('screenRegForm');
+  } catch (e) {
+    hideLoading();
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+async function deleteRegistration(regId) {
+  if (!confirm('Delete this registration? This cannot be undone.')) return;
+  showLoading();
+  try {
+    var SERVICE_KEY = new URLSearchParams(window.location.search).get('key') || '';
+    var writeHeaders = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json' };
+    if (SERVICE_KEY) { writeHeaders['apikey'] = SERVICE_KEY; writeHeaders['Authorization'] = 'Bearer ' + SERVICE_KEY; }
+
+    // Delete roster entries first (foreign key), then the registration
+    await fetch(SUPABASE_URL + '/rest/v1/registration_roster?registration_id=eq.' + regId, { method: 'DELETE', headers: writeHeaders });
+    var delResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?id=eq.' + regId, { method: 'DELETE', headers: writeHeaders });
+
+    hideLoading();
+    if (!delResp.ok) { showToast('Delete failed: ' + await delResp.text(), 'error'); return; }
+
+    editingRegId = null;
+    regInProgress = false;
+    showToast('Registration deleted.', 'success');
+    setTimeout(function() { hideToast(); renderDashboard(); showScreen('screenDash'); }, 1500);
   } catch (e) {
     hideLoading();
     showToast('Error: ' + e.message, 'error');
@@ -1720,7 +1840,7 @@ async function submitRegistration() {
     var wasEdit = !!editingRegId;
     editingRegId = null;
     showToast(wasEdit ? 'Registration updated!' : 'Registration submitted!', 'success');
-    setTimeout(function() { hideToast(); showScreen('screenDash'); }, 2000);
+    setTimeout(function() { hideToast(); renderDashboard(); showScreen('screenDash'); }, 2000);
 
   } catch (e) {
     hideLoading();

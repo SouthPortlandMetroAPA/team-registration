@@ -85,16 +85,12 @@
       margin-bottom: 8px; padding-bottom: 4px; border-bottom: 2px solid var(--spm-accent);
     }
     .div-card {
-      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
-      padding: 12px 16px; margin-bottom: 8px; display: flex;
-      justify-content: space-between; align-items: center;
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 8px 14px; margin-bottom: 6px;
+      font-size: 0.9rem;
     }
-    .div-card-time { font-weight: 700; font-size: 0.95rem; }
-    .div-card-areas { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
-    .div-card-roster {
-      font-size: 0.75rem; color: var(--muted); white-space: nowrap;
-      background: #f0f0f0; border-radius: 999px; padding: 3px 10px;
-    }
+    .div-card-areas { font-weight: 600; display: inline; }
+    .div-card-time { color: var(--muted); display: inline; margin-left: 6px; font-size: 0.8rem; }
 
     /* ── Registration Form ────────────────────────────────────────── */
     .reg-form { margin-top: 16px; }
@@ -296,7 +292,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.39</div>
+      <div class="app-pill">Session Registration &middot; v0.40</div>
     </div>
   </div>
 
@@ -603,11 +599,9 @@ async function showDivisionsBrowser() {
   formatsWithDivs.sort(function(a, b) { return (orderMap[a] || 99) - (orderMap[b] || 99); });
 
   // Render tabs
-  if (!browseActiveFormat || formatsWithDivs.indexOf(browseActiveFormat) === -1) {
-    browseActiveFormat = formatsWithDivs[0] || '';
-  }
+  if (!browseActiveFormat) browseActiveFormat = 'ALL';
 
-  var tabsHtml = '';
+  var tabsHtml = '<button class="browse-tab' + (browseActiveFormat === 'ALL' ? ' active' : '') + '" onclick="switchBrowseTab(\'ALL\')">All</button>';
   for (var t = 0; t < formatsWithDivs.length; t++) {
     var cls = formatsWithDivs[t] === browseActiveFormat ? ' active' : '';
     tabsHtml += '<button class="browse-tab' + cls + '" onclick="switchBrowseTab(\'' + esc(formatsWithDivs[t]) + '\')">' + esc(formatsWithDivs[t]) + '</button>';
@@ -627,8 +621,8 @@ function switchBrowseTab(fmt) {
 }
 
 function renderBrowseContent() {
-  var filtered = cachedDivisions.filter(function(d) { return d.format === browseActiveFormat; });
-  var cfg = FORMAT_CONFIG[browseActiveFormat] || {};
+  var isAll = browseActiveFormat === 'ALL';
+  var filtered = isAll ? cachedDivisions : cachedDivisions.filter(function(d) { return d.format === browseActiveFormat; });
 
   // Group by day
   var dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -656,14 +650,11 @@ function renderBrowseContent() {
     for (var dj = 0; dj < divs.length; dj++) {
       var div = divs[dj];
       html += '<div class="div-card">';
-      html += '<div>';
-      html += '<div class="div-card-time">' + esc(div.time) + '</div>';
-      html += '<div class="div-card-areas">' + esc(div.areas || '') + '</div>';
-      html += '</div>';
-      if (cfg.min && cfg.max) {
-        var sizeLabel = cfg.min === cfg.max ? cfg.min + ' players' : cfg.min + '-' + cfg.max + ' players';
-        html += '<div class="div-card-roster">' + sizeLabel + '</div>';
-      }
+      html += '<span class="div-card-areas">' + esc(div.areas || '') + '</span>';
+      html += '<span class="div-card-time">' + esc(div.time);
+      if (isAll) html += ' &middot; ' + esc(div.format);
+      if (div.is_biweekly) html += ' &middot; <span style="background:#e0e0ff;color:#4a4a9a;font-size:0.65rem;padding:1px 5px;border-radius:4px;font-weight:600">biweekly</span>';
+      html += '</span>';
       html += '</div>';
     }
 

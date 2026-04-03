@@ -103,7 +103,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Player Data Management &middot; v0.37</div>
+      <div class="app-pill">Player Data Management &middot; v0.40</div>
     </div>
   </div>
 
@@ -150,10 +150,7 @@
   <!-- ═══ Tab: Divisions ═══ -->
   <div id="tabDivisions" class="hidden">
     <div class="spm-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <h3 style="margin:0">Manage Divisions</h3>
-        <button class="spm-btn spm-btn-secondary" onclick="syncToDb()" style="font-size:0.75rem;padding:4px 12px">Sync from Browser</button>
-      </div>
+      <h3 style="margin:0 0 12px">Manage Divisions</h3>
       <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px">A division is a specific format + day + time + area combination that teams can register for.</p>
 
       <!-- Add division form -->
@@ -173,6 +170,11 @@
         </div>
         <div><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Time</label>
           <input type="text" id="divTime" placeholder="e.g. 6:30p" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:6px;font-size:0.85rem;min-height:36px" onkeydown="if(event.key==='Enter'){event.preventDefault();addDivision()}">
+        </div>
+        <div><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Schedule</label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer;margin-top:4px">
+            <input type="checkbox" id="divBiweekly" style="min-width:16px;min-height:16px"> Biweekly
+          </label>
         </div>
         <div style="grid-column:1/-1"><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Areas</label>
           <div id="divAreaCheckboxes" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:6px;background:#fff"></div>
@@ -763,7 +765,7 @@ async function addDivision() {
 
   var resp = await fetch(SUPABASE_URL + '/rest/v1/divisions', {
     method: 'POST', headers: sbHeadersReturn(true),
-    body: JSON.stringify({ format: format, day: day, time: time })
+    body: JSON.stringify({ format: format, day: day, time: time, is_biweekly: document.getElementById('divBiweekly').checked })
   });
   if (!resp.ok) { setStatus('Error creating division.', 'error'); return; }
   var newDiv = await resp.json();
@@ -784,6 +786,26 @@ async function addDivision() {
   setStatus('Division added.', 'success');
 }
 
+async function editDivision(id) {
+  var div = divisions.find(function(d) { return d.id === id; });
+  if (!div) return;
+  // Pre-fill the form
+  document.getElementById('divFormat').value = div.format;
+  document.getElementById('divDay').value = div.day;
+  document.getElementById('divTime').value = div.time;
+  document.getElementById('divBiweekly').checked = div.is_biweekly || false;
+  // Check matching areas
+  var areaNames = (div.areas || '').split(', ');
+  var cbs = document.querySelectorAll('.div-area-cb');
+  for (var i = 0; i < cbs.length; i++) {
+    var areaName = areas.find(function(a) { return a.id === parseInt(cbs[i].value, 10); });
+    cbs[i].checked = areaName && areaNames.indexOf(areaName.name) !== -1;
+  }
+  // Delete old, user clicks Add to re-create
+  await removeDivision(id);
+  setStatus('Division loaded for editing. Modify and click Add.', 'success');
+}
+
 async function removeDivision(id) {
   await fetch(SUPABASE_URL + '/rest/v1/divisions?id=eq.' + id, { method: 'DELETE', headers: sbHeaders(true) });
   await loadDivisions();
@@ -794,9 +816,13 @@ function renderDivisions() {
   for (var i = 0; i < divisions.length; i++) {
     var d = divisions[i];
     html += '<div class="list-item">';
-    html += '<div><strong>' + esc(d.format) + '</strong> &middot; ' + esc(d.day) + ' ' + esc(d.time);
+    var bw = d.is_biweekly ? ' <span style="background:#e0e0ff;color:#4a4a9a;font-size:0.65rem;padding:1px 6px;border-radius:4px;font-weight:600">BIWEEKLY</span>' : '';
+    html += '<div><strong>' + esc(d.format) + '</strong> &middot; ' + esc(d.day) + ' ' + esc(d.time) + bw;
     html += '<div style="font-size:0.8rem;color:var(--muted)">' + esc(d.areas || '') + '</div></div>';
+    html += '<div style="display:flex;gap:8px;align-items:center;flex-shrink:0">';
+    html += '<button class="remove-link" onclick="editDivision(' + d.id + ')">edit</button>';
     html += '<button class="remove-link" onclick="removeDivision(' + d.id + ')">remove</button>';
+    html += '</div>';
     html += '</div>';
   }
   if (divisions.length === 0) html = '<div style="color:var(--muted);padding:16px;text-align:center">No divisions defined yet.</div>';

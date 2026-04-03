@@ -320,7 +320,17 @@
     .toast-icon { font-size: 2.5rem; margin-bottom: 8px; }
     .toast-icon.error { color: var(--spm-primary); }
     .toast-icon.success { color: #28a745; }
+    .toast-icon.info {
+      color: #fff; background: var(--spm-accent); width: 48px; height: 48px;
+      line-height: 48px; border-radius: 50%; margin: 0 auto 8px; font-size: 1.8rem; font-weight: 800;
+    }
     .toast-msg { font-size: 0.95rem; font-weight: 500; margin-bottom: 16px; line-height: 1.4; }
+    .toast-msg a.toast-link {
+      display: inline-block; margin-top: 10px; padding: 8px 20px; border-radius: 999px;
+      background: linear-gradient(135deg, var(--spm-primary), var(--spm-accent));
+      color: #fff; font-weight: 700; font-size: 0.85rem; text-decoration: none;
+      letter-spacing: 0.04em;
+    }
 
     .hidden { display: none !important; }
   </style>
@@ -331,7 +341,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.56</div>
+      <div class="app-pill">Session Registration &middot; v0.57</div>
     </div>
   </div>
 
@@ -510,10 +520,16 @@ function signOut() {
 function esc(s) { var d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
 function showLoading() { document.getElementById('loadingModal').classList.add('active'); }
 function hideLoading() { document.getElementById('loadingModal').classList.remove('active'); }
-function showToast(msg, type) {
-  document.getElementById('toastIcon').innerHTML = type === 'error' ? '&#10007;' : type === 'success' ? '&#10003;' : '&#9888;';
+function showToast(msg, type, opts) {
+  // opts.html = true to allow HTML in msg (for links etc.)
+  var icons = { error: '&#10007;', success: '&#10003;', warn: '&#9888;', info: '&#63;' };
+  document.getElementById('toastIcon').innerHTML = icons[type] || icons.error;
   document.getElementById('toastIcon').className = 'toast-icon ' + (type || 'error');
-  document.getElementById('toastMsg').textContent = msg;
+  if (opts && opts.html) {
+    document.getElementById('toastMsg').innerHTML = msg;
+  } else {
+    document.getElementById('toastMsg').textContent = msg;
+  }
   document.getElementById('toastOverlay').classList.add('active');
 }
 function hideToast() { document.getElementById('toastOverlay').classList.remove('active'); }
@@ -1366,7 +1382,7 @@ async function addPlayer() {
     hideLoading();
 
     if (!data || data.length === 0) {
-      showToast('APA #' + apa + ' not found. If this is a new player, visit spm-apa.com \u2192 Contact Us to have us update the app.', 'error');
+      showToast('APA #' + esc(apa) + ' not found.<br>If this is a new player, let us know!<br><a class="toast-link" href="https://spm-apa.com/contact" target="_blank">Contact Us at spm-apa.com</a>', 'info', { html: true });
       return;
     }
 

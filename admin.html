@@ -103,7 +103,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Player Data Management &middot; v0.36</div>
+      <div class="app-pill">Player Data Management &middot; v0.37</div>
     </div>
   </div>
 
@@ -112,6 +112,7 @@
     <button class="tab-btn active" onclick="switchTab('import')">Import Player Data</button>
     <button class="tab-btn" onclick="switchTab('divisions')">Divisions</button>
     <button class="tab-btn" onclick="switchTab('areas')">Areas</button>
+    <button class="tab-btn" onclick="switchTab('formats')">Formats</button>
   </div>
 
   <!-- ═══ Tab: Import ═══ -->
@@ -173,12 +174,6 @@
         <div><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Time</label>
           <input type="text" id="divTime" placeholder="e.g. 6:30p" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:6px;font-size:0.85rem;min-height:36px" onkeydown="if(event.key==='Enter'){event.preventDefault();addDivision()}">
         </div>
-        <div><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Min</label>
-          <input type="number" id="divMin" value="3" min="1" max="20" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:6px;font-size:0.85rem;min-height:36px">
-        </div>
-        <div><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Max</label>
-          <input type="number" id="divMax" value="8" min="1" max="20" style="width:100%;border:1px solid var(--border);border-radius:8px;padding:6px;font-size:0.85rem;min-height:36px">
-        </div>
         <div style="grid-column:1/-1"><label style="font-size:0.75rem;font-weight:600;color:var(--muted)">Areas</label>
           <div id="divAreaCheckboxes" style="max-height:150px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:6px;background:#fff"></div>
         </div>
@@ -206,6 +201,15 @@
 
       <!-- Areas list -->
       <div id="areasList"></div>
+    </div>
+  </div>
+
+  <!-- ═══ Tab: Formats ═══ -->
+  <div id="tabFormats" class="hidden">
+    <div class="spm-card">
+      <h3 style="margin:0 0 12px">Format Roster Rules</h3>
+      <p style="font-size:0.85rem;color:var(--muted);margin:0 0 12px">Set min/max roster size and captain rules per format. Changes apply immediately.</p>
+      <div id="formatsList"></div>
     </div>
   </div>
 
@@ -666,7 +670,7 @@ loadStats();
 // Tab Switching
 // ════════════════════════════════════════════════════════════════════
 function switchTab(tab) {
-  var tabs = { import: 'tabImport', divisions: 'tabDivisions', areas: 'tabAreas' };
+  var tabs = { import: 'tabImport', divisions: 'tabDivisions', areas: 'tabAreas', formats: 'tabFormats' };
   for (var k in tabs) {
     document.getElementById(tabs[k]).classList.toggle('hidden', k !== tab);
   }
@@ -674,7 +678,8 @@ function switchTab(tab) {
   for (var i = 0; i < btns.length; i++) {
     var match = (tab === 'import' && btns[i].textContent.indexOf('Import') !== -1) ||
                 (tab === 'divisions' && btns[i].textContent === 'Divisions') ||
-                (tab === 'areas' && btns[i].textContent === 'Areas');
+                (tab === 'areas' && btns[i].textContent === 'Areas') ||
+                (tab === 'formats' && btns[i].textContent === 'Formats');
     btns[i].classList.toggle('active', match);
   }
 }
@@ -758,7 +763,7 @@ async function addDivision() {
 
   var resp = await fetch(SUPABASE_URL + '/rest/v1/divisions', {
     method: 'POST', headers: sbHeadersReturn(true),
-    body: JSON.stringify({ format: format, day: day, time: time, min_roster: parseInt(document.getElementById('divMin').value,10)||3, max_roster: parseInt(document.getElementById('divMax').value,10)||8 })
+    body: JSON.stringify({ format: format, day: day, time: time })
   });
   if (!resp.ok) { setStatus('Error creating division.', 'error'); return; }
   var newDiv = await resp.json();
@@ -789,7 +794,7 @@ function renderDivisions() {
   for (var i = 0; i < divisions.length; i++) {
     var d = divisions[i];
     html += '<div class="list-item">';
-    html += '<div><strong>' + esc(d.format) + '</strong> &middot; ' + esc(d.day) + ' ' + esc(d.time) + ' &middot; ' + (d.min_roster||3) + '-' + (d.max_roster||8) + ' players';
+    html += '<div><strong>' + esc(d.format) + '</strong> &middot; ' + esc(d.day) + ' ' + esc(d.time);
     html += '<div style="font-size:0.8rem;color:var(--muted)">' + esc(d.areas || '') + '</div></div>';
     html += '<button class="remove-link" onclick="removeDivision(' + d.id + ')">remove</button>';
     html += '</div>';
@@ -848,9 +853,56 @@ async function syncToDb() {
   setStatus('Synced ' + count + ' items to database.', 'success');
 }
 
+// ================================================================
+// Formats Management (Supabase)
+// ================================================================
+var formats = [];
+
+async function loadFormats() {
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/formats?order=display_order', { headers: sbHeaders(false) });
+    if (resp.ok) formats = await resp.json();
+  } catch (e) {}
+  renderFormats();
+}
+
+async function updateFormat(name, field, value) {
+  var body = {};
+  body[field] = value;
+  await fetch(SUPABASE_URL + '/rest/v1/formats?name=eq.' + encodeURIComponent(name), {
+    method: 'PATCH', headers: Object.assign(sbHeaders(true), { 'Prefer': 'return=minimal' }),
+    body: JSON.stringify(body)
+  });
+  await loadFormats();
+}
+
+function renderFormats() {
+  var html = '<table style="width:100%;border-collapse:collapse;font-size:0.85rem">';
+  html += '<thead><tr><th style="text-align:left;padding:6px;border-bottom:2px solid var(--border)">Format</th>';
+  html += '<th style="padding:6px;border-bottom:2px solid var(--border)">Min</th>';
+  html += '<th style="padding:6px;border-bottom:2px solid var(--border)">Max</th>';
+  html += '<th style="padding:6px;border-bottom:2px solid var(--border)">Co-Captain</th>';
+  html += '<th style="padding:6px;border-bottom:2px solid var(--border)">DJ</th></tr></thead><tbody>';
+
+  for (var i = 0; i < formats.length; i++) {
+    var f = formats[i];
+    html += '<tr>';
+    html += '<td style="padding:6px;border-bottom:1px solid #f0f0f0;font-weight:600">' + esc(f.name) + '</td>';
+    html += '<td style="padding:6px;border-bottom:1px solid #f0f0f0;text-align:center"><input type="number" value="' + f.min_roster + '" min="1" max="20" style="width:50px;text-align:center;border:1px solid var(--border);border-radius:6px;padding:4px" onchange="updateFormat(\'' + esc(f.name).replace(/'/g, "\\'") + '\',\'min_roster\',parseInt(this.value,10))"></td>';
+    html += '<td style="padding:6px;border-bottom:1px solid #f0f0f0;text-align:center"><input type="number" value="' + f.max_roster + '" min="1" max="20" style="width:50px;text-align:center;border:1px solid var(--border);border-radius:6px;padding:4px" onchange="updateFormat(\'' + esc(f.name).replace(/'/g, "\\'") + '\',\'max_roster\',parseInt(this.value,10))"></td>';
+    html += '<td style="padding:6px;border-bottom:1px solid #f0f0f0;text-align:center"><input type="checkbox" ' + (f.has_co_captain ? 'checked' : '') + ' onchange="updateFormat(\'' + esc(f.name).replace(/'/g, "\\'") + '\',\'has_co_captain\',this.checked)"></td>';
+    html += '<td style="padding:6px;border-bottom:1px solid #f0f0f0;text-align:center"><input type="checkbox" ' + (f.is_dj ? 'checked' : '') + ' onchange="updateFormat(\'' + esc(f.name).replace(/'/g, "\\'") + '\',\'is_dj\',this.checked)"></td>';
+    html += '</tr>';
+  }
+
+  html += '</tbody></table>';
+  document.getElementById('formatsList').innerHTML = html;
+}
+
 // Init
 loadAreas();
 loadDivisions();
+loadFormats();
 
 </script>
 </body>

@@ -265,7 +265,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.36</div>
+      <div class="app-pill">Session Registration &middot; v0.37</div>
     </div>
   </div>
 
@@ -355,17 +355,39 @@ var currentConfig = null;  // format config for current registration
 var roster = [];
 var cachedDivisions = [];  // loaded from Supabase on startup
 
-// Format defaults — overridden by division min/max from DB when available
-var FORMAT_CONFIG = {
-  'Double Jeopardy':         { min: 3, max: 8, hasCoCaptain: true, isDJ: true, ball: null, accent: null },
-  '8-Ball Open':             { min: 3, max: 8, hasCoCaptain: true, isDJ: false, ball: '8ball.svg', accent: '#1a1a1a' },
-  '9-Ball Open':             { min: 3, max: 8, hasCoCaptain: true, isDJ: false, ball: '9ball.svg', accent: '#f5c518' },
-  'Double Jeopardy Doubles': { min: 2, max: 2, hasCoCaptain: false, isDJ: false, ball: null, accent: '#6c757d' },
-  '8-Ball Doubles':          { min: 2, max: 2, hasCoCaptain: false, isDJ: false, ball: '8ball.svg', accent: '#1a1a1a' },
-  '9-Ball Doubles':          { min: 2, max: 2, hasCoCaptain: false, isDJ: false, ball: '9ball.svg', accent: '#f5c518' },
-  'Masters':                 { min: 3, max: 4, hasCoCaptain: true, isDJ: false, ball: null, accent: '#6c757d' },
-  'Ladies':                  { min: 3, max: 5, hasCoCaptain: true, isDJ: false, ball: null, accent: '#e91e8c' }
+// Format config loaded from Supabase formats table
+var FORMAT_CONFIG = {};
+var cachedFormats = [];
+
+// Ball/accent are UI-only — not in DB
+var FORMAT_UI = {
+  '8-Ball Open':        { ball: '8ball.svg', accent: '#1a1a1a' },
+  '9-Ball Open':        { ball: '9ball.svg', accent: '#f5c518' },
+  '8-Ball Doubles':     { ball: '8ball.svg', accent: '#1a1a1a' },
+  '9-Ball Doubles':     { ball: '9ball.svg', accent: '#f5c518' },
+  'Masters':            { ball: null, accent: '#6c757d' },
+  'Ladies':             { ball: null, accent: '#e91e8c' },
+  'Double Jeopardy Doubles': { ball: null, accent: '#6c757d' }
 };
+
+async function loadFormats() {
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/formats?order=display_order', { headers: SB_HEADERS });
+    if (resp.ok) {
+      cachedFormats = await resp.json();
+      for (var i = 0; i < cachedFormats.length; i++) {
+        var f = cachedFormats[i];
+        var ui = FORMAT_UI[f.name] || {};
+        FORMAT_CONFIG[f.name] = {
+          min: f.min_roster, max: f.max_roster,
+          hasCoCaptain: f.has_co_captain, isDJ: f.is_dj,
+          ball: ui.ball || null, accent: ui.accent || null
+        };
+      }
+    }
+  } catch (e) {}
+}
+loadFormats();
 
 // Load divisions from Supabase
 async function loadDivisions() {
@@ -586,7 +608,7 @@ function renderRegForm() {
   var currentDiv = document.getElementById('regDivision') ? document.getElementById('regDivision').value : '';
 
   html += '<div class="form-group"><label>Division</label>';
-  html += '<select id="regDivision" onchange="onDivisionSelect()"><option value="">-- Select --</option>';
+  html += '<select id="regDivision"><option value="">-- Select --</option>';
 
   // Group by day
   var dayOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -1181,15 +1203,6 @@ window.addEventListener('beforeunload', function(e) {
   }
 });
 
-function onDivisionSelect() {
-  var divId = document.getElementById('regDivision').value;
-  if (!divId) return;
-  // Find the division and override min/max from DB
-  var div = cachedDivisions.find(function(d) { return String(d.id) === divId; });
-  if (div && div.min_roster) currentConfig.min = div.min_roster;
-  if (div && div.max_roster) currentConfig.max = div.max_roster;
-  renderRegForm();
-}
 
 async function submitRegistration() {
   var teamName = document.getElementById('regTeamName').value.trim();

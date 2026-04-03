@@ -370,7 +370,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.68</div>
+      <div class="app-pill">Session Registration &middot; v0.69</div>
     </div>
   </div>
 
@@ -1910,8 +1910,15 @@ async function submitRegistration() {
   if (isDJ) {
     var on8 = roster.filter(function(r) { return r.onRoster8; }).length;
     var on9 = roster.filter(function(r) { return r.onRoster9; }).length;
-    if (on8 < cfg.min) { showToast('8-Ball needs at least ' + cfg.min + ' players.', 'warn'); return; }
-    if (on9 < cfg.min) { showToast('9-Ball needs at least ' + cfg.min + ' players.', 'warn'); return; }
+    var short8 = on8 < cfg.min;
+    var short9 = on9 < cfg.min;
+    if (short8 || short9) {
+      var msg;
+      if (short8 && short9) msg = 'Both 8-Ball and 9-Ball need at least ' + cfg.min + ' players.';
+      else if (short8) msg = '8-Ball needs at least ' + cfg.min + ' players.';
+      else msg = '9-Ball needs at least ' + cfg.min + ' players.';
+      showToast(msg, 'warn'); return;
+    }
   } else {
     if (roster.length < cfg.min) { showToast('Need at least ' + cfg.min + ' players.', 'warn'); return; }
   }

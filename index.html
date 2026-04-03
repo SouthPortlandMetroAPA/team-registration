@@ -109,11 +109,12 @@
 
     /* ── Autocomplete Dropdown ────────────────────────────────────── */
     .ac-dropdown {
-      position: absolute; top: 100%; left: 0; right: 60px; /* leave room for Add btn */
+      position: absolute; top: 100%; left: 0; right: 0;
       background: #fff; border: 2px solid var(--spm-accent); border-top: none;
       border-radius: 0 0 12px 12px; max-height: 240px; overflow-y: auto;
       z-index: 100; box-shadow: 0 6px 16px rgba(0,0,0,0.15); display: none;
     }
+    .add-row .ac-dropdown { right: 60px; /* leave room for Add btn */ }
     .ac-dropdown.open { display: block; }
     .ac-item {
       padding: 10px 14px; cursor: pointer; border-bottom: 1px solid #f0f0f0;
@@ -193,7 +194,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.10</div>
+      <div class="app-pill">Session Registration &middot; v0.11</div>
     </div>
   </div>
 
@@ -406,17 +407,16 @@ function renderRegForm() {
   html += '<div class="form-group"><label>Host Location / Area</label>';
   html += '<input type="text" id="regHost" value="' + esc(document.getElementById('regHost') ? document.getElementById('regHost').value : '') + '" placeholder="Venue name or area"></div>';
 
-  // Add player input with autocomplete
-  html += '<div class="add-row">';
-  html += '<input type="text" id="addPlayerInput" placeholder="APA # or name" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">';
-  html += '<button class="spm-btn spm-btn-primary" onclick="addPlayer()">Add</button>';
-  html += '<div class="ac-dropdown" id="acDropdown"></div>';
-  html += '</div>';
-
-  // Roster
+  // Roster (add-player input is inside the roster for DJ, or above for single)
   if (isDJ) {
     html += renderDJRoster();
   } else {
+    // Add player input above single-column roster
+    html += '<div class="add-row">';
+    html += '<input type="text" id="addPlayerInput" placeholder="APA # or name" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)">';
+    html += '<button class="spm-btn spm-btn-primary" onclick="addPlayer()">Add</button>';
+    html += '<div class="ac-dropdown" id="acDropdown"></div>';
+    html += '</div>';
     html += renderSingleRoster();
   }
 
@@ -435,10 +435,13 @@ function renderDJRoster() {
 
   var html = '<div class="dj-roster">';
 
-  // Column headers: 8-ball | (empty center) | 9-ball
+  // Column headers: 8-ball | add player input | 9-ball
   html += '<div class="dj-col-header">';
   html += '<div><img src="8ball.svg" class="ball-img" alt="8-Ball"><span class="ball-label">8-Ball</span></div>';
-  html += '<div></div>';
+  html += '<div style="display:flex;align-items:center;padding:0 4px;position:relative">';
+  html += '<input type="text" id="addPlayerInput" placeholder="APA # or name" autocomplete="off" oninput="onSearchInput()" onkeydown="onSearchKeydown(event)" style="width:100%;border:2px solid var(--border);border-radius:12px;padding:8px 10px;font-size:0.9rem;outline:none;min-height:44px">';
+  html += '<div class="ac-dropdown" id="acDropdown"></div>';
+  html += '</div>';
   html += '<div><img src="9ball.svg" class="ball-img" alt="9-Ball"><span class="ball-label">9-Ball</span></div>';
   html += '</div>';
 

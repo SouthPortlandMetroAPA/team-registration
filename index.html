@@ -370,7 +370,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.74</div>
+      <div class="app-pill">Session Registration &middot; v0.75</div>
     </div>
   </div>
 
@@ -480,7 +480,7 @@
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase `apps` table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.74';
+var APP_VERSION = '0.75';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -975,8 +975,7 @@ async function renderDashboard() {
     var html = '<div class="team-pills">';
     for (var t = 0; t < regs.length; t++) {
       var reg = regs[t];
-      var isSubmitter = reg.submitted_by === p.member_number;
-      var action = isSubmitter ? 'editRegistration(' + reg.id + ')' : 'viewRegistration(' + reg.id + ')';
+      var action = 'viewRegistration(' + reg.id + ')';
       var div = cachedDivisions.find(function(d) { return d.id === reg.division_id; });
       var dayTime = div ? div.day + (div.time ? ' ' + div.time : '') : '';
       var areas = div ? (div.areas || '') : '';
@@ -1172,9 +1171,6 @@ function renderRegForm() {
   html += '<div class="action-bar">';
   html += '<button class="spm-btn spm-btn-primary" onclick="submitRegistration()">Submit Registration</button>';
   html += '<button class="spm-btn spm-btn-danger" onclick="confirmCancel()">Cancel</button>';
-  if (editingRegId) {
-    html += '<button class="spm-btn spm-btn-danger" onclick="deleteRegistration(' + editingRegId + ')" style="background:#dc3545;color:#fff;border-color:#dc3545">Delete</button>';
-  }
   html += '</div>';
 
   document.getElementById('regFormContent').innerHTML = html;
@@ -1814,9 +1810,10 @@ function viewRegistration(regId) {
 
   document.getElementById('viewContent').innerHTML = html;
 
-  // Show delete button if this player submitted the registration
+  // Submitter gets Edit + Delete; everyone else just gets Back
   var actionsHtml = '<button class="spm-btn spm-btn-secondary" onclick="showScreen(\'screenDash\')">Back</button>';
   if (reg.submitted_by === currentPlayer.member_number) {
+    actionsHtml += '<button class="spm-btn spm-btn-primary" onclick="editRegistration(' + regId + ')">Edit</button>';
     actionsHtml += '<button class="spm-btn spm-btn-danger" onclick="deleteRegistration(' + regId + ')" style="background:#dc3545;color:#fff;border-color:#dc3545">Delete</button>';
   }
   document.getElementById('viewActions').innerHTML = actionsHtml;
@@ -1938,12 +1935,12 @@ async function deleteRegistration(regId) {
     var delResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?id=eq.' + regId, { method: 'DELETE', headers: writeHeaders });
 
     hideLoading();
-    if (!delResp.ok) { showToast('Delete failed: ' + await delResp.text(), 'error'); return; }
+    if (!delResp.ok) { showToast('Delete failed: ' + delResp.status, 'error'); return; }
 
     editingRegId = null;
     regInProgress = false;
     showToast('Registration deleted.', 'success');
-    setTimeout(function() { hideToast(); renderDashboard(); showScreen('screenDash'); }, 1500);
+    setTimeout(async function() { hideToast(); await renderDashboard(); showScreen('screenDash'); }, 1500);
   } catch (e) {
     hideLoading();
     showToast('Error: ' + e.message, 'error');

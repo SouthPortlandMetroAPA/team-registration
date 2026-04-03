@@ -370,7 +370,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.71</div>
+      <div class="app-pill">Session Registration &middot; v0.72</div>
     </div>
   </div>
 
@@ -478,46 +478,40 @@
 
 <script>
 // ════════════════════════════════════════════════════════════════════
-// Version Check — auto-reload if a newer version is deployed
+// Version Check — polls Supabase `apps` table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.71';
+var APP_VERSION = '0.72';
+var _versionMismatch = false;
 
-(function checkVersion() {
-  fetch('version.txt?_=' + Date.now())
-    .then(function(r) { return r.ok ? r.text() : null; })
-    .then(function(remote) {
-      if (!remote) return;
-      remote = remote.trim();
-      if (remote === APP_VERSION) return;
-      // Newer version exists — show updating dialog and poll until deployed
-      showUpdateDialog();
-      pollForUpdate(remote);
+function checkVersion() {
+  if (_versionMismatch) return; // already showing update dialog
+  fetch(SUPABASE_URL + '/rest/v1/apps?app_name=eq.TeamRegistration&select=version', { headers: SB_HEADERS })
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(data) {
+      if (!data || data.length === 0) return;
+      var remote = data[0].version;
+      if (remote !== APP_VERSION) {
+        _versionMismatch = true;
+        document.getElementById('updateOverlay').classList.add('active');
+        // Poll until GitHub Pages CDN has the new HTML, then hard reload
+        pollForDeploy(remote);
+      }
     })
-    .catch(function() { /* offline or error — skip */ });
-})();
-
-function showUpdateDialog() {
-  var el = document.getElementById('updateOverlay');
-  if (el) el.classList.add('active');
+    .catch(function() { /* offline or Supabase down — skip */ });
 }
 
-function pollForUpdate(targetVersion) {
-  // Hard-reload the page; if the HTML still has the old version, poll again
-  // We check by re-fetching index.html and looking for APP_VERSION in it
+function pollForDeploy(targetVersion) {
   setTimeout(function() {
     fetch('index.html?_=' + Date.now())
       .then(function(r) { return r.ok ? r.text() : null; })
       .then(function(html) {
-        if (!html) { pollForUpdate(targetVersion); return; }
-        // Check if the deployed HTML has the target version
-        if (html.indexOf("APP_VERSION = '" + targetVersion + "'") !== -1) {
+        if (html && html.indexOf("APP_VERSION = '" + targetVersion + "'") !== -1) {
           location.reload(true);
         } else {
-          // CDN hasn't propagated yet — retry in 3s
-          pollForUpdate(targetVersion);
+          pollForDeploy(targetVersion);
         }
       })
-      .catch(function() { setTimeout(function() { pollForUpdate(targetVersion); }, 3000); });
+      .catch(function() { pollForDeploy(targetVersion); });
   }, 3000);
 }
 
@@ -527,7 +521,10 @@ function pollForUpdate(targetVersion) {
 var SUPABASE_URL = 'https://dqzbekoaysgaiqljueac.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxemJla29heXNnYWlxbGp1ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNzA5NzgsImV4cCI6MjA5MDc0Njk3OH0.cCdGxZ4zEFzU_r6lWSDeoNWG67Q4MSYCAtpds035dfU';
 var SB_HEADERS = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY };
-// currentConfig.max is now currentConfig.max (set per format)
+
+// Kick off version check now and every 30s
+checkVersion();
+setInterval(checkVersion, 30000);
 
 // ════════════════════════════════════════════════════════════════════
 // State

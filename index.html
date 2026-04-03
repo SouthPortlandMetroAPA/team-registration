@@ -320,7 +320,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.51</div>
+      <div class="app-pill">Session Registration &middot; v0.52</div>
     </div>
   </div>
 
@@ -1322,7 +1322,17 @@ async function addPlayer() {
     hideLoading();
 
     if (!data || data.length === 0) {
-      showToast('APA #' + apa + ' not found in player database.', 'error');
+      // Check if this number is beyond our database — likely a new player not yet imported
+      var maxResp = await fetch(SUPABASE_URL + '/rest/v1/player_full?select=member_number&order=member_number.desc&limit=1', { headers: SB_HEADERS });
+      var maxData = maxResp.ok ? await maxResp.json() : [];
+      var maxNum = maxData.length > 0 ? parseInt(maxData[0].member_number, 10) : 0;
+      var enteredNum = parseInt(apa, 10);
+
+      if (enteredNum > maxNum) {
+        showToast('APA #' + apa + ' hasn\'t been added to this app yet. Visit spm-apa.com \u2192 Contact Us to have us update it.', 'error');
+      } else {
+        showToast('APA #' + apa + ' not found in player database.', 'error');
+      }
       return;
     }
 

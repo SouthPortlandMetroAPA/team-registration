@@ -144,9 +144,11 @@
     .rp-btn.on-roster { background: #d4edda; color: #155724; border-color: #28a745; }
     .rp-btn.off-roster { background: #f8d7da; color: #721c24; border-color: #dc3545; }
     .rp-remove {
-      position: absolute; top: 6px; right: 8px; background: none; border: none;
-      color: var(--spm-primary); cursor: pointer; font-size: 1.1rem; padding: 2px 6px;
+      display: block; background: none; border: none; color: var(--muted);
+      cursor: pointer; font-size: 0.7rem; padding: 2px 0; margin-top: 4px;
+      text-decoration: underline;
     }
+    .rp-remove:hover { color: var(--spm-primary); }
     .roster-count { font-size: 0.8rem; color: var(--muted); text-align: center; margin-top: 4px; }
     .roster-count.full { color: var(--spm-primary); }
 
@@ -193,7 +195,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.20</div>
+      <div class="app-pill">Session Registration &middot; v0.21</div>
     </div>
   </div>
 
@@ -565,7 +567,7 @@ function renderDJPlayerRow(idx) {
   html += '<div class="dj-center">';
   html += '<div class="rp-name">' + playerDisplayName(p) + '</div>';
   html += '<div class="rp-member">#' + esc(p.memberNumber) + '</div>';
-  html += '<button class="rp-remove" onclick="removePlayer(' + idx + ')" title="Remove">&times;</button>';
+  html += '<button class="rp-remove" onclick="removePlayer(' + idx + ')">remove</button>';
   html += '</div>';
 
   // Right: 9-ball controls
@@ -608,7 +610,7 @@ function renderSingleRoster() {
     html += '<button class="rp-btn' + (p.role === 'Captain' ? ' active-c' : '') + '" onclick="setSingleRole(' + i + ',\'Captain\')">Captain</button>';
     html += '<button class="rp-btn' + (p.role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setSingleRole(' + i + ',\'Co-Captain\')">Co-Captain</button>';
     html += '</div>';
-    html += '<button class="rp-remove" onclick="removePlayer(' + i + ')" title="Remove">&times;</button>';
+    html += '<button class="rp-remove" onclick="removePlayer(' + i + ')">remove</button>';
     html += '</div>';
   }
 

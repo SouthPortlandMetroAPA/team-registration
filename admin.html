@@ -103,7 +103,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Player Data Management &middot; v0.29</div>
+      <div class="app-pill">Player Data Management &middot; v0.30</div>
     </div>
   </div>
 
@@ -747,10 +747,12 @@ function addDivision() {
   for (var i = 0; i < cbs.length; i++) selectedAreas.push(cbs[i].value);
 
   // Check duplicate (same format + day)
+  var areasKey = selectedAreas.slice().sort().join('|');
   var dup = divisions.some(function(d) {
-    return d.format === format && d.day === day;
+    var dAreas = (d.areas || [d.area || '']).slice().sort().join('|');
+    return d.format === format && d.day === day && d.time === time && dAreas === areasKey;
   });
-  if (dup) { setStatus('A ' + format + ' division on ' + day + ' already exists.', 'error'); return; }
+  if (dup) { setStatus('This exact division already exists.', 'error'); return; }
 
   divisions.push({ format: format, day: day, time: time, areas: selectedAreas });
   divisions.sort(function(a, b) {

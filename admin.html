@@ -103,7 +103,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Player Data Management &middot; v0.45</div>
+      <div class="app-pill">Player Data Management &middot; v0.47</div>
     </div>
   </div>
 
@@ -996,30 +996,50 @@ function renderRegistrations() {
   document.getElementById('regList').innerHTML = html;
 }
 
+// Format timestamp to short LA time: "4/3/26 7:03a"
+function shortDate(isoStr) {
+  if (!isoStr) return '';
+  try {
+    var d = new Date(isoStr);
+    var opts = { timeZone: 'America/Los_Angeles', year: '2-digit', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true };
+    var s = d.toLocaleString('en-US', opts);
+    // "4/3/26, 7:03 AM" → "4/3/26 7:03a"
+    return s.replace(',', '').replace(' AM', 'a').replace(' PM', 'p');
+  } catch (e) { return isoStr; }
+}
+
 async function exportRegistrations() {
   setStatus('Exporting registrations...', '');
   try {
-    // Load fresh data
     var resp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?order=submitted_at.desc', { headers: sbHeaders(false) });
     var regs = resp.ok ? await resp.json() : [];
     var rResp = await fetch(SUPABASE_URL + '/rest/v1/registration_roster?order=registration_id,role', { headers: sbHeaders(false) });
     var roster = rResp.ok ? await rResp.json() : [];
+    var dResp = await fetch(SUPABASE_URL + '/rest/v1/division_full?order=day,format', { headers: sbHeaders(false) });
+    var divs = dResp.ok ? await dResp.json() : [];
 
     if (regs.length === 0) { setStatus('No registrations to export.', 'error'); return; }
 
-    // One row per roster entry with team info denormalized
+    // Build division lookup
+    var divMap = {};
+    for (var d = 0; d < divs.length; d++) divMap[divs[d].id] = divs[d];
+
+    // Build reg lookup
     var regMap = {};
     for (var i = 0; i < regs.length; i++) regMap[regs[i].id] = regs[i];
 
-    var headers = ['Team Name','Format','Division ID','Host Location','Status','Submitted By','Submitted At','Member Number','Player Name','Role','Format Side','On Roster'];
+    var headers = ['Team Name','Format','Day','Time','Areas','Host Location','Status','Submitted By','Submitted At','Member Number','Player Name','Role','Format Side','On Roster'];
     var rows = [headers.join(',')];
 
     for (var j = 0; j < roster.length; j++) {
       var re = roster[j];
       var reg = regMap[re.registration_id] || {};
+      var div = divMap[reg.division_id] || {};
       rows.push([
-        csvEsc(reg.team_name), csvEsc(reg.format), reg.division_id || '', csvEsc(reg.host_location),
-        csvEsc(reg.status), reg.submitted_by || '', csvEsc(reg.submitted_at),
+        csvEsc(reg.team_name), csvEsc(reg.format),
+        csvEsc(div.day || ''), csvEsc(div.time || ''), csvEsc(div.areas || ''),
+        csvEsc(reg.host_location), csvEsc(reg.status),
+        reg.submitted_by || '', csvEsc(shortDate(reg.submitted_at)),
         re.member_number, csvEsc(re.player_name), csvEsc(re.role),
         re.format_side || '', re.on_roster
       ].join(','));

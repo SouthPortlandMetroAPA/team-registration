@@ -1182,11 +1182,10 @@ function setRegFormat(fmt) {
 }
 
 function renderRegDivFilters() {
-  // Get divisions for the active format (or all)
-  var divs = regDivisions;
-  if (regActiveFormat !== 'All') {
-    divs = divs.filter(function(d) { return d.format === regActiveFormat; });
-  }
+  // Hide division filters on "All" tab — too many divisions, not useful
+  if (regActiveFormat === 'All') { document.getElementById('regDivFilters').innerHTML = ''; return; }
+
+  var divs = regDivisions.filter(function(d) { return d.format === regActiveFormat; });
   if (divs.length === 0) { document.getElementById('regDivFilters').innerHTML = ''; return; }
 
   // Group by day
@@ -1232,21 +1231,24 @@ function renderRegStats(filtered) {
   var counts = getTeamCountsPerDiv(filtered);
   var totalTeams = 0;
   for (var k in counts) totalTeams += counts[k];
+  var totalRegs = filtered.length;
 
-  // Get unique divs that have registrations
-  var divIds = Object.keys(counts);
-  if (divIds.length === 0) {
-    document.getElementById('regStats').innerHTML = '<div class="reg-stat"><div class="num">0</div><div class="label">Teams</div></div>';
-    return;
+  var html = '<div class="reg-stat"><div class="num">' + totalRegs + '</div><div class="label">Registrations</div></div>';
+  html += '<div class="reg-stat"><div class="num">' + totalTeams + '</div><div class="label">Teams</div></div>';
+
+  // Only show per-division breakdown when a specific format is selected
+  if (regActiveFormat !== 'All') {
+    var divIds = Object.keys(counts);
+    for (var i = 0; i < divIds.length; i++) {
+      var div = regDivMap[divIds[i]];
+      if (!div) continue;
+      var label = (div.day || '').substring(0, 3) + ' ' + (div.time || '');
+      // Shorten area text — just first area name
+      var shortArea = (div.areas || '').split(',')[0].trim();
+      html += '<div class="reg-stat"><div class="num">' + counts[divIds[i]] + '</div><div class="label">' + esc(label) + '<br>' + esc(shortArea) + (div.areas && div.areas.indexOf(',') !== -1 ? '...' : '') + '</div></div>';
+    }
   }
 
-  var html = '<div class="reg-stat"><div class="num">' + totalTeams + '</div><div class="label">Total Teams</div></div>';
-  for (var i = 0; i < divIds.length; i++) {
-    var div = regDivMap[divIds[i]];
-    if (!div) continue;
-    var label = (div.day || '').substring(0, 3) + ' ' + (div.time || '');
-    html += '<div class="reg-stat"><div class="num">' + counts[divIds[i]] + '</div><div class="label">' + esc(label) + '<br>' + esc(div.areas || '') + '</div></div>';
-  }
   document.getElementById('regStats').innerHTML = html;
 }
 

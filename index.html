@@ -370,7 +370,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.82</div>
+      <div class="app-pill">Session Registration &middot; v0.83</div>
     </div>
   </div>
 
@@ -478,7 +478,7 @@
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase `apps` table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.82';
+var APP_VERSION = '0.83';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -530,6 +530,7 @@ setInterval(checkVersion, 30000);
 var currentPlayer = null;
 var selectedFormat = '';
 var isDJ = false;
+var isDJDoubles = false;  // DJ Doubles: single-roster UI with per-side captain buttons
 var currentConfig = null;  // format config for current registration
 var roster = [];
 var cachedDivisions = [];  // loaded from Supabase on startup
@@ -1008,6 +1009,7 @@ function startRegistration(format) {
   selectedFormat = format;
   currentConfig = FORMAT_CONFIG[format] || { min: 3, max: 8, hasCoCaptain: true, isDJ: false, ball: null, accent: null };
   isDJ = currentConfig.isDJ;
+  isDJDoubles = (format === 'Double Jeopardy Doubles');
   roster = [];
   editingRegId = null;
   regInProgress = true;
@@ -1029,6 +1031,10 @@ function startRegistration(format) {
     if (isDJ) {
       entry.onRoster8 = true; entry.onRoster9 = true;
       entry.role8 = 'Captain'; entry.role9 = 'Captain';
+    } else if (isDJDoubles) {
+      entry.role = 'Player';
+      entry.captain8 = true;
+      entry.captain9 = true;
     } else {
       entry.role = 'Captain';
     }
@@ -1331,11 +1337,16 @@ function renderSingleRoster() {
     html += '<div class="rp-member">#' + esc(p.memberNumber) + '</div>';
     html += '</div>';
 
-    // Role pills
+    // Role pills — DJ Doubles gets per-side captain buttons
     html += '<div class="rp-controls" style="margin:0">';
-    html += '<button class="rp-btn' + (p.role === 'Captain' ? ' active-c' : '') + '" onclick="setSingleRole(' + i + ',\'Captain\')">' + (cfg.max === 2 ? '★ Captain' : 'Captain') + '</button>';
-    if (cfg.hasCoCaptain) {
-      html += '<button class="rp-btn' + (p.role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setSingleRole(' + i + ',\'Co-Captain\')">Co-Capt</button>';
+    if (isDJDoubles) {
+      html += '<button class="rp-btn' + (p.captain8 ? ' active-c' : '') + '" onclick="setDJDoublesCaptain(' + i + ',\'8\')" style="gap:4px"><img src="8ball.svg" style="width:16px;height:16px;vertical-align:middle"> Capt</button>';
+      html += '<button class="rp-btn' + (p.captain9 ? ' active-c' : '') + '" onclick="setDJDoublesCaptain(' + i + ',\'9\')" style="gap:4px"><img src="9ball.svg" style="width:16px;height:16px;vertical-align:middle"> Capt</button>';
+    } else {
+      html += '<button class="rp-btn' + (p.role === 'Captain' ? ' active-c' : '') + '" onclick="setSingleRole(' + i + ',\'Captain\')">' + (cfg.max === 2 ? '★ Captain' : 'Captain') + '</button>';
+      if (cfg.hasCoCaptain) {
+        html += '<button class="rp-btn' + (p.role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setSingleRole(' + i + ',\'Co-Captain\')">Co-Capt</button>';
+      }
     }
     html += '</div>';
 
@@ -1484,10 +1495,15 @@ function selectACItem(idx) {
     if (!entry.onRoster8 && !entry.onRoster9) { showToast('Both rosters are full.', 'warn'); return; }
   } else {
     entry.role = 'Player';
+    if (isDJDoubles) {
+      entry.captain8 = false;
+      entry.captain9 = false;
+    }
   }
 
   roster.push(entry);
-  autoAssignRoles();
+  if (isDJDoubles) autoAssignDJDoublesCaptains();
+  else autoAssignRoles();
   document.getElementById('addPlayerInput').value = '';
   renderRegForm();
 }
@@ -1559,10 +1575,15 @@ async function addPlayer() {
       if (!entry.onRoster8 && !entry.onRoster9) { showToast('Both rosters are full.', 'warn'); return; }
     } else {
       entry.role = 'Player';
+      if (isDJDoubles) {
+        entry.captain8 = false;
+        entry.captain9 = false;
+      }
     }
 
     roster.push(entry);
-    autoAssignRoles();
+    if (isDJDoubles) autoAssignDJDoublesCaptains();
+    else autoAssignRoles();
     input.value = '';
     renderRegForm();
   } catch (e) {
@@ -1688,6 +1709,29 @@ function setSingleRole(idx, role) {
     }
   }
   roster[idx].role = role;
+  renderRegForm();
+}
+
+// DJ Doubles: toggle per-side captain. Only one player can be captain per side.
+// Auto-assign DJ Doubles captains: 1st player gets 8-ball, 2nd gets 9-ball
+function autoAssignDJDoublesCaptains() {
+  var has8 = roster.some(function(r) { return r.captain8; });
+  var has9 = roster.some(function(r) { return r.captain9; });
+  if (!has8 && roster.length >= 1) roster[0].captain8 = true;
+  if (!has9 && roster.length >= 2) roster[1].captain9 = true;
+  // If only 1 player, they get both
+  if (!has9 && roster.length === 1) roster[0].captain9 = true;
+}
+
+function setDJDoublesCaptain(idx, side) {
+  var key = side === '8' ? 'captain8' : 'captain9';
+  // Toggle: if already captain, remove it; otherwise assign and remove from others
+  if (roster[idx][key]) {
+    roster[idx][key] = false;
+  } else {
+    for (var i = 0; i < roster.length; i++) roster[i][key] = false;
+    roster[idx][key] = true;
+  }
   renderRegForm();
 }
 
@@ -1871,6 +1915,7 @@ async function editRegistration(regId) {
     selectedFormat = reg.format;
     currentConfig = FORMAT_CONFIG[reg.format] || { min: 3, max: 8, hasCoCaptain: true, isDJ: false, ball: null, accent: null };
     isDJ = currentConfig.isDJ;
+    isDJDoubles = (reg.format === 'Double Jeopardy Doubles');
     regInProgress = true;
 
     // Build roster from DB
@@ -1890,6 +1935,10 @@ async function editRegistration(regId) {
         if (isDJ) {
           playerMap[mn].onRoster8 = false; playerMap[mn].onRoster9 = false;
           playerMap[mn].role8 = 'Player'; playerMap[mn].role9 = 'Player';
+        } else if (isDJDoubles) {
+          playerMap[mn].role = 'Player';
+          playerMap[mn].captain8 = false;
+          playerMap[mn].captain9 = false;
         } else {
           playerMap[mn].role = 'Player';
         }
@@ -1897,6 +1946,10 @@ async function editRegistration(regId) {
       if (isDJ) {
         if (rr.format_side === '8') { playerMap[mn].onRoster8 = rr.on_roster !== false; playerMap[mn].role8 = rr.role; }
         else if (rr.format_side === '9') { playerMap[mn].onRoster9 = rr.on_roster !== false; playerMap[mn].role9 = rr.role; }
+      } else if (isDJDoubles) {
+        // Reconstruct captain flags from format_side + role
+        if (rr.format_side === '8' && rr.role === 'Captain') playerMap[mn].captain8 = true;
+        if (rr.format_side === '9' && rr.role === 'Captain') playerMap[mn].captain9 = true;
       } else {
         playerMap[mn].role = rr.role;
       }
@@ -1978,6 +2031,9 @@ async function submitRegistration() {
     var hasCapt9 = roster.some(function(r) { return r.onRoster9 && r.role9 === 'Captain'; });
     if (!hasCapt8) { showToast('Assign a Captain for 8-Ball.', 'warn'); return; }
     if (!hasCapt9) { showToast('Assign a Captain for 9-Ball.', 'warn'); return; }
+  } else if (isDJDoubles) {
+    if (!roster.some(function(r) { return r.captain8; })) { showToast('Assign an 8-Ball Captain.', 'warn'); return; }
+    if (!roster.some(function(r) { return r.captain9; })) { showToast('Assign a 9-Ball Captain.', 'warn'); return; }
   } else {
     if (!roster.some(function(r) { return r.role === 'Captain'; })) { showToast('Assign a Captain.', 'warn'); return; }
   }
@@ -2043,6 +2099,14 @@ async function submitRegistration() {
         if (p.onRoster9) {
           rosterRows.push({ registration_id: regId, member_number: p.memberNumber, player_name: p.firstName + ' ' + p.lastName, role: p.role9, format_side: '9', on_roster: true });
         }
+      }
+    } else if (isDJDoubles) {
+      // DJ Doubles: two entries per player (one per side), captain flag from captain8/captain9
+      for (var k = 0; k < roster.length; k++) {
+        var d = roster[k];
+        var name = d.firstName + ' ' + d.lastName;
+        rosterRows.push({ registration_id: regId, member_number: d.memberNumber, player_name: name, role: d.captain8 ? 'Captain' : 'Player', format_side: '8', on_roster: true });
+        rosterRows.push({ registration_id: regId, member_number: d.memberNumber, player_name: name, role: d.captain9 ? 'Captain' : 'Player', format_side: '9', on_roster: true });
       }
     } else {
       for (var j = 0; j < roster.length; j++) {

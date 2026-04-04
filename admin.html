@@ -1203,8 +1203,12 @@ function renderRegDivFilters() {
   for (var di = 0; di < dayOrder.length; di++) {
     var day = dayOrder[di];
     if (!byDay[day]) continue;
+    // Collect all div IDs for this day
+    var dayDivIds = byDay[day].map(function(d) { return d.id; });
+    var allDayActive = dayDivIds.every(function(id) { return regActiveDivIds.indexOf(id) !== -1; });
     html += '<div class="reg-div-day">' + esc(day) + '</div>';
     html += '<div class="reg-div-pills">';
+    html += '<button class="reg-div-pill' + (allDayActive ? ' active' : '') + '" onclick="toggleRegDivDay([' + dayDivIds.join(',') + '])">All ' + esc(day) + '</button>';
     for (var dj = 0; dj < byDay[day].length; dj++) {
       var div = byDay[day][dj];
       var isActive = regActiveDivIds.indexOf(div.id) !== -1;
@@ -1224,6 +1228,19 @@ function toggleRegDiv(id) {
   var idx = regActiveDivIds.indexOf(id);
   if (idx === -1) regActiveDivIds.push(id);
   else regActiveDivIds.splice(idx, 1);
+  renderRegistrations();
+}
+
+function toggleRegDivDay(dayIds) {
+  // If all are active, deselect them. Otherwise, add them all.
+  var allActive = dayIds.every(function(id) { return regActiveDivIds.indexOf(id) !== -1; });
+  if (allActive) {
+    regActiveDivIds = regActiveDivIds.filter(function(id) { return dayIds.indexOf(id) === -1; });
+  } else {
+    for (var i = 0; i < dayIds.length; i++) {
+      if (regActiveDivIds.indexOf(dayIds[i]) === -1) regActiveDivIds.push(dayIds[i]);
+    }
+  }
   renderRegistrations();
 }
 

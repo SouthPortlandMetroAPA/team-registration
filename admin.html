@@ -194,7 +194,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Admin &middot; v0.84</div>
+      <div class="app-pill">Admin &middot; v0.85</div>
     </div>
   </div>
 
@@ -337,6 +337,14 @@
   <div class="spm-footer">South Portland Metro APA &middot; Team Registration Admin</div>
 </div>
 
+<!-- Update Overlay -->
+<div class="progress-modal" id="updateOverlay">
+  <div class="progress-box">
+    <div class="progress-title">Updating</div>
+    <div style="font-size:0.85rem;color:var(--muted)">Loading the latest version...</div>
+  </div>
+</div>
+
 <!-- Progress Modal -->
 <div class="progress-modal" id="progressModal">
   <div class="progress-box">
@@ -356,6 +364,46 @@ var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 // Service role key from URL param (admin only)
 var params = new URLSearchParams(window.location.search);
 var SERVICE_KEY = params.get('key') || '';
+var SB_HEADERS_ANON = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY };
+
+// ════════════════════════════════════════════════════════════════════
+// Version Check — polls Supabase apps table every 30s, reloads if newer
+// ════════════════════════════════════════════════════════════════════
+var APP_VERSION = '0.85';
+var _versionMismatch = false;
+
+function checkVersion() {
+  if (_versionMismatch) return;
+  fetch(SUPABASE_URL + '/rest/v1/apps?app_name=eq.TeamRegistration&select=version', { headers: SB_HEADERS_ANON })
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(data) {
+      if (!data || data.length === 0) return;
+      if (data[0].version !== APP_VERSION) {
+        _versionMismatch = true;
+        document.getElementById('updateOverlay').classList.add('active');
+        pollForDeploy(data[0].version);
+      }
+    })
+    .catch(function() {});
+}
+
+function pollForDeploy(targetVersion) {
+  setTimeout(function() {
+    fetch('admin.html?_=' + Date.now())
+      .then(function(r) { return r.ok ? r.text() : null; })
+      .then(function(html) {
+        if (html && html.indexOf("APP_VERSION = '" + targetVersion + "'") !== -1) {
+          location.reload(true);
+        } else {
+          pollForDeploy(targetVersion);
+        }
+      })
+      .catch(function() { pollForDeploy(targetVersion); });
+  }, 3000);
+}
+
+checkVersion();
+setInterval(checkVersion, 30000);
 
 function sbHeaders(useService) {
   var key = useService ? SERVICE_KEY : SUPABASE_ANON_KEY;
@@ -1094,6 +1142,7 @@ function getCaptainsDisplay(reg) {
       if (players[i].role === 'Captain' && players[i].format_side === '8') cap8 = players[i].player_name;
       if (players[i].role === 'Captain' && players[i].format_side === '9') cap9 = players[i].player_name;
     }
+    if (cap8 && cap9 && cap8 === cap9) return esc(cap8);
     if (cap8 && cap9) return esc(cap8) + ' (8) / ' + esc(cap9) + ' (9)';
     if (cap8) return esc(cap8) + ' (8)';
     if (cap9) return esc(cap9) + ' (9)';

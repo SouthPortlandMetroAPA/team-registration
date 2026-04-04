@@ -370,7 +370,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.81</div>
+      <div class="app-pill">Session Registration &middot; v0.82</div>
     </div>
   </div>
 
@@ -478,7 +478,7 @@
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase `apps` table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.81';
+var APP_VERSION = '0.82';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -1271,7 +1271,9 @@ function renderMobileBallCol(idx, col, onRoster, role) {
   if (onRoster) {
     html += '<div class="m-role-pills">';
     html += '<div class="m-role-pill' + (role === 'Captain' ? ' active-c' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Captain\')">Capt</div>';
-    html += '<div class="m-role-pill' + (role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Co-Captain\')">Co-C</div>';
+    if (currentConfig && currentConfig.hasCoCaptain) {
+      html += '<div class="m-role-pill' + (role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Co-Captain\')">Co-C</div>';
+    }
     html += '</div>';
   }
 
@@ -1284,7 +1286,9 @@ function renderSideControls(idx, col, onRoster, role) {
   if (onRoster) {
     html += '<button class="rp-btn on-roster" onclick="toggleRoster(' + idx + ',\'' + col + '\')">Remove</button>';
     html += '<button class="rp-btn' + (role === 'Captain' ? ' active-c' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Captain\')">Captain</button>';
-    html += '<button class="rp-btn' + (role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Co-Captain\')">Co-Captain</button>';
+    if (currentConfig && currentConfig.hasCoCaptain) {
+      html += '<button class="rp-btn' + (role === 'Co-Captain' ? ' active-cc' : '') + '" onclick="setDJRole(' + idx + ',\'' + col + '\',\'Co-Captain\')">Co-Captain</button>';
+    }
   } else {
     html += '<button class="rp-btn off-roster" onclick="toggleRoster(' + idx + ',\'' + col + '\')">Off Roster</button>';
   }

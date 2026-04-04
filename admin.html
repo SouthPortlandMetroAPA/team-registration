@@ -194,7 +194,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Admin &middot; v0.85</div>
+      <div class="app-pill">Admin &middot; v0.86</div>
     </div>
   </div>
 
@@ -369,7 +369,7 @@ var SB_HEADERS_ANON = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' 
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase apps table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.85';
+var APP_VERSION = '0.86';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -1146,7 +1146,7 @@ function getCaptainsDisplay(reg) {
     if (cap8 && cap9) return esc(cap8) + ' (8) / ' + esc(cap9) + ' (9)';
     if (cap8) return esc(cap8) + ' (8)';
     if (cap9) return esc(cap9) + ' (9)';
-    return '';
+    // Fall through to generic logic for legacy data (format_side=null)
   }
   // Non-DJ: captain + co-captain
   var caps = [];

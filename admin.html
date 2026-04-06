@@ -66,13 +66,46 @@
       transition: all 0.1s; font-family: inherit;
     }
     .reg-div-pill.active { background: var(--spm-accent); color: #fff; border-color: var(--spm-accent); }
-    .reg-stats { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-    .reg-stat {
-      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
-      padding: 8px 12px; text-align: center; min-width: 80px;
+    /* ── Summary Card (SP Admin style) ─────────────────────────── */
+    .reg-summary {
+      background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      overflow: hidden; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
-    .reg-stat .num { font-size: 1.2rem; font-weight: 700; color: var(--spm-accent); }
-    .reg-stat .label { font-size: 0.65rem; color: var(--muted); line-height: 1.3; }
+    .reg-summary-title {
+      padding: 10px 16px; font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: #fff;
+      background: linear-gradient(135deg, var(--spm-primary), var(--spm-accent));
+    }
+    .reg-summary-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 16px; border-bottom: 1px solid #f0f0f0; cursor: pointer;
+      transition: background 0.1s; font-size: 0.9rem;
+    }
+    .reg-summary-row:hover { background: rgba(0,49,161,0.03); }
+    .reg-summary-row.expanded { background: rgba(0,49,161,0.06); }
+    .reg-summary-row:last-child { border-bottom: none; }
+    .reg-summary-format { font-weight: 600; display: flex; align-items: center; gap: 6px; }
+    .reg-summary-chevron {
+      display: inline-block; font-size: 0.6rem; transition: transform 0.2s; color: var(--muted);
+    }
+    .reg-summary-row.expanded .reg-summary-chevron { transform: rotate(90deg); }
+    .reg-summary-count { font-weight: 700; color: var(--spm-accent); min-width: 24px; text-align: right; }
+    .reg-summary-detail { display: none; background: #f8f9fa; }
+    .reg-summary-detail.open { display: block; }
+    .reg-summary-div {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 5px 16px 5px 36px; font-size: 0.8rem; color: var(--muted);
+      border-bottom: 1px solid #eee;
+    }
+    .reg-summary-div:last-child { border-bottom: none; }
+    .reg-summary-div-name { flex: 1; }
+    .reg-summary-div-count { font-weight: 600; color: var(--text); min-width: 24px; text-align: right; }
+    .reg-summary-total {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 16px; font-weight: 800; font-size: 0.95rem;
+      border-top: 2px solid var(--border); background: #f8f9fa;
+    }
+    .reg-summary-total .reg-summary-count { font-size: 1.1rem; }
     .reg-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
     .reg-table th {
       background: #f8f9fa; padding: 8px 10px; text-align: left; font-weight: 700;
@@ -194,7 +227,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Admin &middot; v0.86</div>
+      <div class="app-pill">Admin &middot; v0.87</div>
     </div>
   </div>
 
@@ -369,7 +402,7 @@ var SB_HEADERS_ANON = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' 
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase apps table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.86';
+var APP_VERSION = '0.87';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -1206,7 +1239,7 @@ function renderRegistrations() {
   renderRegFormatTabs();
   renderRegDivFilters();
   var filtered = getFilteredRegs();
-  renderRegStats(filtered);
+  renderRegStats();
   renderRegTable(filtered);
 }
 
@@ -1293,29 +1326,77 @@ function toggleRegDivDay(dayIds) {
   renderRegistrations();
 }
 
-function renderRegStats(filtered) {
-  var counts = getTeamCountsPerDiv(filtered);
-  var totalTeams = 0;
-  for (var k in counts) totalTeams += counts[k];
-  var totalRegs = filtered.length;
+function renderRegStats() {
+  // Build counts: by format → by division → team count
+  // DJ/DJ Doubles count as 2 teams (8-ball + 9-ball)
+  var djFormats = { 'Double Jeopardy': true, 'Double Jeopardy Doubles': true };
+  var byFormat = {};  // format → { divId → teamCount }
+  var formatTotals = {};  // format → total teams
+  var grandTotal = 0;
 
-  var html = '<div class="reg-stat"><div class="num">' + totalRegs + '</div><div class="label">Registrations</div></div>';
-  html += '<div class="reg-stat"><div class="num">' + totalTeams + '</div><div class="label">Teams</div></div>';
-
-  // Only show per-division breakdown when a specific format is selected
-  if (regActiveFormat !== 'All') {
-    var divIds = Object.keys(counts);
-    for (var i = 0; i < divIds.length; i++) {
-      var div = regDivMap[divIds[i]];
-      if (!div) continue;
-      var label = (div.day || '').substring(0, 3) + ' ' + (div.time || '');
-      // Shorten area text — just first area name
-      var shortArea = (div.areas || '').split(',')[0].trim();
-      html += '<div class="reg-stat"><div class="num">' + counts[divIds[i]] + '</div><div class="label">' + esc(label) + '<br>' + esc(shortArea) + (div.areas && div.areas.indexOf(',') !== -1 ? '...' : '') + '</div></div>';
-    }
+  for (var i = 0; i < registrations.length; i++) {
+    var reg = registrations[i];
+    var fmt = reg.format;
+    var teams = djFormats[fmt] ? 2 : 1;
+    if (!byFormat[fmt]) byFormat[fmt] = {};
+    if (!byFormat[fmt][reg.division_id]) byFormat[fmt][reg.division_id] = 0;
+    byFormat[fmt][reg.division_id] += teams;
+    if (!formatTotals[fmt]) formatTotals[fmt] = 0;
+    formatTotals[fmt] += teams;
+    grandTotal += teams;
   }
 
+  // Sort formats by display order (use cachedFormats from loadFormats if available, else alpha)
+  var fmtOrder = Object.keys(byFormat).sort();
+
+  var html = '<div class="reg-summary">';
+  html += '<div class="reg-summary-title">Registration Summary</div>';
+
+  for (var f = 0; f < fmtOrder.length; f++) {
+    var fmt = fmtOrder[f];
+    var fmtId = 'regSumFmt' + f;
+    html += '<div class="reg-summary-row" onclick="toggleRegSummary(\'' + fmtId + '\',this)">';
+    html += '<span class="reg-summary-format"><span class="reg-summary-chevron">&#9654;</span>' + esc(fmt) + '</span>';
+    html += '<span class="reg-summary-count">' + formatTotals[fmt] + '</span>';
+    html += '</div>';
+
+    // Division detail (hidden by default)
+    html += '<div class="reg-summary-detail" id="' + fmtId + '">';
+    var divIds = Object.keys(byFormat[fmt]);
+    // Sort by day then areas
+    var dayOrder = { Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6, Sunday: 7 };
+    divIds.sort(function(a, b) {
+      var da = regDivMap[a] || {}, db = regDivMap[b] || {};
+      var cmp = (dayOrder[da.day] || 99) - (dayOrder[db.day] || 99);
+      if (cmp !== 0) return cmp;
+      return (da.areas || '').localeCompare(db.areas || '');
+    });
+    for (var d = 0; d < divIds.length; d++) {
+      var div = regDivMap[divIds[d]];
+      if (!div) continue;
+      var label = (div.day || '') + ' ' + (div.time || '') + ' — ' + (div.areas || '');
+      html += '<div class="reg-summary-div">';
+      html += '<span class="reg-summary-div-name">' + esc(label) + '</span>';
+      html += '<span class="reg-summary-div-count">' + byFormat[fmt][divIds[d]] + '</span>';
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+
+  html += '<div class="reg-summary-total">';
+  html += '<span>Total</span>';
+  html += '<span class="reg-summary-count">' + grandTotal + '</span>';
+  html += '</div>';
+  html += '</div>';
+
   document.getElementById('regStats').innerHTML = html;
+}
+
+function toggleRegSummary(id, row) {
+  var detail = document.getElementById(id);
+  var isOpen = detail.classList.contains('open');
+  detail.classList.toggle('open');
+  row.classList.toggle('expanded');
 }
 
 function renderRegTable(filtered) {

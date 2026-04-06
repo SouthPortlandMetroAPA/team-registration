@@ -229,7 +229,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Admin &middot; v0.89</div>
+      <div class="app-pill">Admin &middot; v0.90</div>
     </div>
   </div>
 
@@ -339,10 +339,6 @@
       <h3 style="margin:0">Team Registrations</h3>
       <button class="spm-btn spm-btn-primary" onclick="exportRegistrations()" style="font-size:0.8rem;padding:6px 16px">&#8595; Export CSV</button>
     </div>
-    <!-- Format tabs -->
-    <div class="reg-format-tabs" id="regFormatTabs"></div>
-    <!-- Division filters grouped by day -->
-    <div class="reg-div-filters" id="regDivFilters"></div>
     <!-- Stats box -->
     <div class="reg-stats" id="regStats"></div>
     <!-- Sortable table -->
@@ -404,7 +400,7 @@ var SB_HEADERS_ANON = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' 
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase apps table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.89';
+var APP_VERSION = '0.90';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -1407,11 +1403,9 @@ function getTeamCountsPerDiv(filtered) {
 }
 
 // ── Main render ────────────────────────────────────────────────
-function renderRegistrations() {
-  renderRegFormatTabs();
-  renderRegDivFilters();
+function renderRegistrations(skipSummary) {
   var filtered = getFilteredRegs();
-  renderRegStats();
+  if (!skipSummary) renderRegStats();
   renderRegTable(filtered);
 }
 
@@ -1581,7 +1575,14 @@ function filterFromSummary(fmt, divId) {
     regActiveFormat = fmt;
     regActiveDivIds = [divId];
   }
-  renderRegistrations();
+  renderRegistrations(true);  // skip summary re-render to preserve open dropdowns
+  // Update active-filter highlighting on division rows
+  var divRows = document.querySelectorAll('.reg-summary-div');
+  for (var i = 0; i < divRows.length; i++) {
+    var onclick = divRows[i].getAttribute('onclick') || '';
+    var isActive = onclick.indexOf(',' + divId + ')') !== -1 && regActiveDivIds.length === 1 && regActiveDivIds[0] === divId;
+    divRows[i].classList.toggle('active-filter', isActive);
+  }
   // Scroll table into view
   var table = document.getElementById('regTableWrap');
   if (table) table.scrollIntoView({ behavior: 'smooth', block: 'start' });

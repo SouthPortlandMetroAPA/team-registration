@@ -95,8 +95,10 @@
     .reg-summary-div {
       display: flex; justify-content: space-between; align-items: center;
       padding: 5px 16px 5px 36px; font-size: 0.8rem; color: var(--muted);
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid #eee; cursor: pointer; transition: background 0.1s;
     }
+    .reg-summary-div:hover { background: rgba(0,49,161,0.06); }
+    .reg-summary-div.active-filter { background: rgba(0,49,161,0.08); color: var(--spm-accent); font-weight: 600; }
     .reg-summary-div:last-child { border-bottom: none; }
     .reg-summary-div-name { flex: 1; }
     .reg-summary-div-count { font-weight: 600; color: var(--text); min-width: 24px; text-align: right; }
@@ -227,7 +229,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Admin &middot; v0.87</div>
+      <div class="app-pill">Admin &middot; v0.88</div>
     </div>
   </div>
 
@@ -402,7 +404,7 @@ var SB_HEADERS_ANON = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' 
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase apps table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.87';
+var APP_VERSION = '0.88';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -1374,8 +1376,9 @@ function renderRegStats() {
     for (var d = 0; d < divIds.length; d++) {
       var div = regDivMap[divIds[d]];
       if (!div) continue;
-      var label = (div.day || '') + ' ' + (div.time || '') + ' — ' + (div.areas || '');
-      html += '<div class="reg-summary-div">';
+      var label = (div.day || '') + ' ' + (div.time || '') + ' \u2014 ' + (div.areas || '');
+      var isActive = regActiveFormat === fmt && regActiveDivIds.length === 1 && regActiveDivIds[0] === div.id;
+      html += '<div class="reg-summary-div' + (isActive ? ' active-filter' : '') + '" onclick="filterFromSummary(\'' + esc(fmt).replace(/'/g, "\\'") + '\',' + div.id + ')">';
       html += '<span class="reg-summary-div-name">' + esc(label) + '</span>';
       html += '<span class="reg-summary-div-count">' + byFormat[fmt][divIds[d]] + '</span>';
       html += '</div>';
@@ -1394,9 +1397,24 @@ function renderRegStats() {
 
 function toggleRegSummary(id, row) {
   var detail = document.getElementById(id);
-  var isOpen = detail.classList.contains('open');
   detail.classList.toggle('open');
   row.classList.toggle('expanded');
+}
+
+// Click a division in the summary → set format tab + division filter, scroll to table
+function filterFromSummary(fmt, divId) {
+  // Toggle: if already filtering this exact division, clear it
+  if (regActiveFormat === fmt && regActiveDivIds.length === 1 && regActiveDivIds[0] === divId) {
+    regActiveFormat = fmt;
+    regActiveDivIds = [];
+  } else {
+    regActiveFormat = fmt;
+    regActiveDivIds = [divId];
+  }
+  renderRegistrations();
+  // Scroll table into view
+  var table = document.getElementById('regTableWrap');
+  if (table) table.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function renderRegTable(filtered) {

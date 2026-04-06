@@ -229,7 +229,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Admin &middot; v0.88</div>
+      <div class="app-pill">Admin &middot; v0.89</div>
     </div>
   </div>
 
@@ -404,7 +404,7 @@ var SB_HEADERS_ANON = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' 
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase apps table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.88';
+var APP_VERSION = '0.89';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -601,6 +601,9 @@ async function executeImport() {
   document.getElementById('importBtn').disabled = true;
   setStatus('Importing ' + parsedRows.length + ' players...', '');
 
+  // Record timestamp before import — used to query change_log after
+  var importStartTime = new Date().toISOString();
+
   // Build per-table upsert batches
   var batches = {};  // table → [{ member_number, col1, col2, ... }]
   var memberIdx = parsedMemberIdx;
@@ -721,14 +724,26 @@ async function executeImport() {
       countyCount = await lookupCounties();
     }
 
+    updateProgress(98, 'Building change report...');
+    await tick();
+
+    // Fetch change_log entries from this import
+    var changeReport = await fetchChangeReport(importStartTime);
+
     updateProgress(100, 'Complete!');
     await tick();
     setTimeout(hideProgress, 1000);
     var msg = 'Imported ' + total + ' players across ' + allTables.length + ' tables.';
     if (skipped) msg += ' Skipped ' + skipped + ' invalid rows.';
     if (countyCount > 0) msg += ' Resolved ' + countyCount + ' counties.';
+    if (changeReport) {
+      msg += ' ' + changeReport.newCount + ' new, ' + changeReport.updatedCount + ' updated.';
+    }
     setStatus(msg, 'success');
     loadStats();
+
+    // Show change report
+    if (changeReport) renderChangeReport(changeReport);
 
     // Clear the input and preview after successful import
     document.getElementById('importData').value = '';
@@ -741,6 +756,161 @@ async function executeImport() {
   }
 
   document.getElementById('importBtn').disabled = false;
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Change Report — reads change_log after import, builds report
+// ════════════════════════════════════════════════════════════════════
+async function fetchChangeReport(sinceISO) {
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/change_log?changed_at=gte.' + encodeURIComponent(sinceISO) + '&order=member_number,table_name,column_name', { headers: sbHeaders(true) });
+    if (!resp.ok) return null;
+    var rows = await resp.json();
+    if (rows.length === 0) return { newCount: 0, updatedCount: 0, newPlayers: [], updatedPlayers: [], raw: [] };
+
+    // Separate inserts from updates
+    // INSERT rows have column_name='*' and come from the players table
+    var newMembers = {};
+    var updates = {};  // member → [{ table, column, old, new }]
+
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (r.change_type === 'INSERT' && r.table_name === 'players') {
+        newMembers[r.member_number] = true;
+      } else if (r.change_type === 'UPDATE') {
+        if (!updates[r.member_number]) updates[r.member_number] = [];
+        updates[r.member_number].push({
+          table: r.table_name,
+          column: r.column_name,
+          oldVal: r.old_value,
+          newVal: r.new_value
+        });
+      }
+    }
+
+    // Remove new players from updates (their INSERT rows in fact tables are noise)
+    var updatedMembers = {};
+    for (var mn in updates) {
+      if (!newMembers[mn]) updatedMembers[mn] = updates[mn];
+    }
+
+    // Build new player list with names (from change_log INSERT rows in player_names)
+    var newPlayers = [];
+    for (var nm in newMembers) {
+      var nameRow = rows.find(function(r) { return r.member_number === nm && r.table_name === 'player_names' && r.change_type === 'INSERT'; });
+      newPlayers.push({ memberNumber: nm });
+    }
+
+    // Fetch names for new + updated players in one call
+    var allMns = Object.keys(newMembers).concat(Object.keys(updatedMembers));
+    var nameMap = {};
+    if (allMns.length > 0) {
+      var nameResp = await fetch(SUPABASE_URL + '/rest/v1/player_names?member_number=in.(' + allMns.join(',') + ')&select=member_number,first_name,last_name', { headers: sbHeaders(false) });
+      if (nameResp.ok) {
+        var names = await nameResp.json();
+        for (var n = 0; n < names.length; n++) nameMap[names[n].member_number] = names[n].first_name + ' ' + names[n].last_name;
+      }
+    }
+
+    // Enrich with names
+    var newList = Object.keys(newMembers).map(function(mn) {
+      return { memberNumber: mn, name: nameMap[mn] || mn };
+    });
+    var updatedList = [];
+    for (var um in updatedMembers) {
+      updatedList.push({
+        memberNumber: um,
+        name: nameMap[um] || um,
+        changes: updatedMembers[um]
+      });
+    }
+
+    return {
+      newCount: newList.length,
+      updatedCount: updatedList.length,
+      newPlayers: newList,
+      updatedPlayers: updatedList,
+      raw: rows
+    };
+  } catch (e) {
+    console.error('fetchChangeReport error:', e);
+    return null;
+  }
+}
+
+var lastChangeReport = null;
+
+function renderChangeReport(report) {
+  lastChangeReport = report;
+  var container = document.getElementById('previewArea');
+  if (!report || (report.newCount === 0 && report.updatedCount === 0)) {
+    container.innerHTML = '<div style="text-align:center;color:var(--muted);padding:16px">No changes detected.</div>';
+    return;
+  }
+
+  var html = '<div style="margin-top:16px">';
+  html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
+  html += '<h3 style="margin:0">Import Change Report</h3>';
+  html += '<button class="spm-btn spm-btn-primary" onclick="downloadChangeCSV()" style="font-size:0.8rem;padding:6px 16px">&#8595; Download CSV</button>';
+  html += '</div>';
+
+  // New Players section
+  if (report.newPlayers.length > 0) {
+    html += '<div style="margin-bottom:16px">';
+    html += '<div style="font-weight:700;font-size:0.9rem;color:#28a745;margin-bottom:6px">New Players (' + report.newPlayers.length + ')</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:4px">';
+    for (var i = 0; i < report.newPlayers.length; i++) {
+      var np = report.newPlayers[i];
+      html += '<span style="background:#d4edda;color:#155724;padding:3px 10px;border-radius:999px;font-size:0.75rem;font-weight:600">' + esc(np.name) + ' <span style="opacity:0.6">#' + esc(np.memberNumber) + '</span></span>';
+    }
+    html += '</div></div>';
+  }
+
+  // Updated Players section
+  if (report.updatedPlayers.length > 0) {
+    html += '<div>';
+    html += '<div style="font-weight:700;font-size:0.9rem;color:var(--spm-accent);margin-bottom:6px">Updated Players (' + report.updatedPlayers.length + ')</div>';
+    for (var j = 0; j < report.updatedPlayers.length; j++) {
+      var up = report.updatedPlayers[j];
+      html += '<div style="padding:8px 12px;border-bottom:1px solid #f0f0f0">';
+      html += '<div style="font-weight:600;font-size:0.85rem">' + esc(up.name) + ' <span style="color:var(--muted);font-weight:400">#' + esc(up.memberNumber) + '</span></div>';
+      html += '<div style="font-size:0.75rem;color:var(--muted);margin-top:2px">';
+      for (var k = 0; k < up.changes.length; k++) {
+        var ch = up.changes[k];
+        if (k > 0) html += ', ';
+        html += '<strong>' + esc(ch.column) + ':</strong> ' + esc(ch.newVal || '(empty)');
+      }
+      html += '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function downloadChangeCSV() {
+  if (!lastChangeReport) return;
+  var rows = ['Type,Member Number,Name,Field,Old Value,New Value'];
+
+  for (var i = 0; i < lastChangeReport.newPlayers.length; i++) {
+    var np = lastChangeReport.newPlayers[i];
+    rows.push(['"NEW"', np.memberNumber, csvEsc(np.name), '', '', ''].join(','));
+  }
+  for (var j = 0; j < lastChangeReport.updatedPlayers.length; j++) {
+    var up = lastChangeReport.updatedPlayers[j];
+    for (var k = 0; k < up.changes.length; k++) {
+      var ch = up.changes[k];
+      rows.push(['"UPDATED"', up.memberNumber, csvEsc(up.name), csvEsc(ch.column), csvEsc(ch.oldVal || ''), csvEsc(ch.newVal || '')].join(','));
+    }
+  }
+
+  var csv = rows.join('\n');
+  var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  var link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'import-changes-' + new Date().toISOString().slice(0, 10) + '.csv';
+  link.click();
 }
 
 // ════════════════════════════════════════════════════════════════════

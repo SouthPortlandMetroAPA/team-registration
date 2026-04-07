@@ -370,7 +370,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.90</div>
+      <div class="app-pill">Session Registration &middot; v0.91</div>
     </div>
   </div>
 
@@ -478,7 +478,7 @@
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase `apps` table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.90';
+var APP_VERSION = '0.91';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -592,6 +592,10 @@ function signOut() {
 // Auto-login: if we have a saved member number, prefill and run lookup
 (async function autoLogin() {
   try {
+    // Direct link: ?view=browse opens divisions browser without login
+    var viewParam = new URLSearchParams(window.location.search).get('view');
+    if (viewParam === 'browse') { showDivisionsBrowser(); return; }
+
     var saved = localStorage.getItem('teamreg_lastLogin');
     if (saved) {
       document.getElementById('authInput').value = saved;

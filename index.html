@@ -332,6 +332,61 @@
       letter-spacing: 0.04em;
     }
 
+    /* ── Requests Section ──────────────────────────────────────────── */
+    .req-section { margin-top: 20px; }
+    .req-section-title {
+      font-size: 0.9rem; font-weight: 700; color: var(--spm-accent); margin-bottom: 8px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .req-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 12px 16px; margin-bottom: 8px; position: relative;
+    }
+    .req-card.filled { opacity: 0.5; }
+    .req-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+    .req-tag {
+      display: inline-block; background: #f0f4ff; color: var(--spm-accent);
+      font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    }
+    .req-notes { font-size: 0.8rem; color: var(--muted); margin-top: 6px; font-style: italic; }
+    .req-actions { display: flex; gap: 6px; margin-top: 8px; }
+    .req-actions button {
+      font-size: 0.7rem; padding: 4px 10px; border-radius: 8px; cursor: pointer;
+      border: 1px solid var(--border); background: #fff; font-family: inherit; font-weight: 600;
+    }
+    .req-actions .req-del { color: var(--spm-primary); border-color: var(--spm-primary); }
+    .req-add-btn {
+      font-size: 0.75rem; padding: 4px 12px; border-radius: 999px; cursor: pointer;
+      background: var(--spm-accent); color: #fff; border: none; font-family: inherit; font-weight: 600;
+    }
+    /* ── Request Form Modal ───────────────────────────────────────── */
+    .req-form-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center; z-index: 10001; padding: 20px;
+    }
+    .req-form-overlay.active { display: flex; }
+    .req-form-box {
+      background: #fff; border-radius: 20px; padding: 24px; max-width: 440px; width: 100%;
+      max-height: 85vh; overflow-y: auto; position: relative;
+    }
+    .req-form-box h3 { margin: 0 0 16px; }
+    .req-form-group { margin-bottom: 12px; }
+    .req-form-group label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
+    .req-form-group select, .req-form-group input, .req-form-group textarea {
+      width: 100%; border: 2px solid var(--border); border-radius: 10px;
+      padding: 8px 12px; font-size: 0.9rem; font-family: inherit;
+    }
+    .req-form-group textarea { min-height: 60px; resize: vertical; }
+    .req-form-checks { display: flex; flex-wrap: wrap; gap: 6px; }
+    .req-check {
+      display: inline-flex; align-items: center; gap: 4px;
+      font-size: 0.8rem; padding: 4px 10px; border: 1px solid var(--border);
+      border-radius: 999px; cursor: pointer; transition: all 0.1s;
+    }
+    .req-check input { display: none; }
+    .req-check.checked { background: var(--spm-accent); color: #fff; border-color: var(--spm-accent); }
+    .req-form-actions { display: flex; gap: 8px; margin-top: 16px; }
+
     /* ── Search Hint Popup (first-time only) ─────────────────────── */
     .hint-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,0.55);
@@ -370,7 +425,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.91</div>
+      <div class="app-pill">Session Registration &middot; v0.92</div>
     </div>
   </div>
 
@@ -402,6 +457,10 @@
     <div class="dash-actions">
       <button class="spm-btn spm-btn-primary" onclick="showFormatsScreen()">Register a Team</button>
     </div>
+
+    <!-- Player & Team Requests -->
+    <div id="requestsArea"></div>
+
     <div style="text-align:center;margin-top:8px">
       <button class="spm-btn spm-btn-secondary" onclick="signOut()" style="font-size:0.85rem;padding:8px 16px">Sign Out</button>
     </div>
@@ -449,6 +508,11 @@
   </div>
 </div>
 
+<!-- Request Form Modal -->
+<div class="req-form-overlay" id="reqFormOverlay" onclick="if(event.target===this)closeReqForm()">
+  <div class="req-form-box" id="reqFormContent"></div>
+</div>
+
 <!-- Search Hint (first-time only) -->
 <div class="hint-overlay" id="hintOverlay">
   <div class="hint-box">
@@ -478,7 +542,7 @@
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase `apps` table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.91';
+var APP_VERSION = '0.92';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -1001,6 +1065,7 @@ async function renderDashboard() {
     html += '</div>';
 
     document.getElementById('teamsArea').innerHTML = html;
+    loadMyRequests();
   } catch (e) {
     document.getElementById('teamsArea').innerHTML = '<div class="empty-state">Error loading teams</div>';
   }
@@ -2138,6 +2203,258 @@ async function submitRegistration() {
     hideLoading();
     showToast('Error: ' + e.message, 'error');
   }
+}
+// ════════════════════════════════════════════════════════════════════
+// Requests — "Looking for a Team" / "Looking for Players"
+// ════════════════════════════════════════════════════════════════════
+var myPlayerRequests = [];
+var myTeamRequests = [];
+var cachedAreas = [];
+
+async function loadAreas() {
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/areas?select=name&order=name', { headers: SB_HEADERS });
+    if (resp.ok) cachedAreas = (await resp.json()).map(function(a) { return a.name; });
+  } catch (e) {}
+}
+loadAreas();
+
+async function loadMyRequests() {
+  if (!currentPlayer) return;
+  var mn = currentPlayer.member_number;
+  try {
+    var pr = await fetch(SUPABASE_URL + '/rest/v1/player_requests?member_number=eq.' + mn + '&filled=eq.false&order=created_at.desc', { headers: SB_HEADERS });
+    if (pr.ok) myPlayerRequests = await pr.json();
+    var tr = await fetch(SUPABASE_URL + '/rest/v1/team_requests?member_number=eq.' + mn + '&filled=eq.false&order=created_at.desc', { headers: SB_HEADERS });
+    if (tr.ok) myTeamRequests = await tr.json();
+  } catch (e) {}
+  renderRequests();
+}
+
+function renderRequests() {
+  var html = '';
+
+  // Looking for a Team
+  html += '<div class="req-section">';
+  html += '<div class="req-section-title"><span>Looking for a Team</span>';
+  html += '<button class="req-add-btn" onclick="showPlayerReqForm()">+ Add</button></div>';
+  if (myPlayerRequests.length === 0) {
+    html += '<div style="font-size:0.8rem;color:var(--muted);padding:8px 0">No active requests</div>';
+  }
+  for (var i = 0; i < myPlayerRequests.length; i++) {
+    var pr = myPlayerRequests[i];
+    html += '<div class="req-card">';
+    html += '<div class="req-tags">';
+    if (pr.formats) for (var f = 0; f < pr.formats.length; f++) html += '<span class="req-tag">' + esc(pr.formats[f]) + '</span>';
+    if (pr.preferred_days) for (var d = 0; d < pr.preferred_days.length; d++) html += '<span class="req-tag" style="background:#e8f5e9;color:#2e7d32">' + esc(pr.preferred_days[d]) + '</span>';
+    html += '</div>';
+    if (pr.preferred_areas && pr.preferred_areas.length) html += '<div style="font-size:0.75rem;color:var(--muted);margin-top:4px">Preferred: ' + esc(pr.preferred_areas.join(', ')) + '</div>';
+    if (pr.available_areas && pr.available_areas.length) html += '<div style="font-size:0.75rem;color:var(--muted)">Available: ' + esc(pr.available_areas.join(', ')) + '</div>';
+    if (pr.notes) html += '<div class="req-notes">' + esc(pr.notes) + '</div>';
+    html += '<div class="req-actions">';
+    html += '<button onclick="showPlayerReqForm(' + pr.id + ')">Edit</button>';
+    html += '<button class="req-del" onclick="deletePlayerReq(' + pr.id + ')">Delete</button>';
+    html += '</div></div>';
+  }
+  html += '</div>';
+
+  // Looking for Players (only if they have registrations)
+  if (window._dashRegs && window._dashRegs.length > 0) {
+    html += '<div class="req-section">';
+    html += '<div class="req-section-title"><span>Looking for Players</span>';
+    html += '<button class="req-add-btn" onclick="showTeamReqForm()">+ Add</button></div>';
+    if (myTeamRequests.length === 0) {
+      html += '<div style="font-size:0.8rem;color:var(--muted);padding:8px 0">No active requests</div>';
+    }
+    for (var j = 0; j < myTeamRequests.length; j++) {
+      var tr = myTeamRequests[j];
+      var reg = (window._dashRegs || []).find(function(r) { return r.id === tr.registration_id; });
+      var teamName = reg ? reg.team_name : 'Unknown Team';
+      html += '<div class="req-card">';
+      html += '<div style="font-weight:700;font-size:0.9rem">' + esc(teamName) + '</div>';
+      html += '<div class="req-tags">';
+      if (tr.skill_8 !== 'Any') html += '<span class="req-tag">8-Ball: ' + esc(tr.skill_8) + '</span>';
+      if (tr.skill_9 !== 'Any') html += '<span class="req-tag">9-Ball: ' + esc(tr.skill_9) + '</span>';
+      if (tr.skill_8 === 'Any' && tr.skill_9 === 'Any') html += '<span class="req-tag">Any skill level</span>';
+      html += '</div>';
+      if (tr.notes) html += '<div class="req-notes">' + esc(tr.notes) + '</div>';
+      html += '<div class="req-actions">';
+      html += '<button onclick="showTeamReqForm(' + tr.id + ')">Edit</button>';
+      html += '<button class="req-del" onclick="deleteTeamReq(' + tr.id + ')">Delete</button>';
+      html += '</div></div>';
+    }
+    html += '</div>';
+  }
+
+  document.getElementById('requestsArea').innerHTML = html;
+}
+
+// ── Player Request Form ────────────────────────────────────────
+function showPlayerReqForm(editId) {
+  var existing = editId ? myPlayerRequests.find(function(r) { return r.id === editId; }) : null;
+  var days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  var formats = Object.keys(FORMAT_CONFIG);
+
+  var html = '<h3>' + (existing ? 'Edit' : 'New') + ' — Looking for a Team</h3>';
+
+  // Formats
+  html += '<div class="req-form-group"><label>Format(s)</label><div class="req-form-checks" id="reqFormats">';
+  for (var f = 0; f < formats.length; f++) {
+    var checked = existing && existing.formats && existing.formats.indexOf(formats[f]) !== -1;
+    html += '<label class="req-check' + (checked ? ' checked' : '') + '" onclick="toggleReqCheck(this)"><input type="checkbox" value="' + esc(formats[f]) + '"' + (checked ? ' checked' : '') + '>' + esc(formats[f]) + '</label>';
+  }
+  html += '</div></div>';
+
+  // Days
+  html += '<div class="req-form-group"><label>Preferred Day(s)</label><div class="req-form-checks" id="reqDays">';
+  for (var d = 0; d < days.length; d++) {
+    var dChecked = existing && existing.preferred_days && existing.preferred_days.indexOf(days[d]) !== -1;
+    html += '<label class="req-check' + (dChecked ? ' checked' : '') + '" onclick="toggleReqCheck(this)"><input type="checkbox" value="' + esc(days[d]) + '"' + (dChecked ? ' checked' : '') + '>' + esc(days[d].substring(0,3)) + '</label>';
+  }
+  html += '</div></div>';
+
+  // Available Areas
+  html += '<div class="req-form-group"><label>Available Areas</label><div class="req-form-checks" id="reqAvailAreas">';
+  for (var a = 0; a < cachedAreas.length; a++) {
+    var aChecked = existing && existing.available_areas && existing.available_areas.indexOf(cachedAreas[a]) !== -1;
+    html += '<label class="req-check' + (aChecked ? ' checked' : '') + '" onclick="toggleReqCheck(this)"><input type="checkbox" value="' + esc(cachedAreas[a]) + '"' + (aChecked ? ' checked' : '') + '>' + esc(cachedAreas[a]) + '</label>';
+  }
+  html += '</div></div>';
+
+  // Preferred Areas
+  html += '<div class="req-form-group"><label>Preferred Areas</label><div class="req-form-checks" id="reqPrefAreas">';
+  for (var p = 0; p < cachedAreas.length; p++) {
+    var pChecked = existing && existing.preferred_areas && existing.preferred_areas.indexOf(cachedAreas[p]) !== -1;
+    html += '<label class="req-check' + (pChecked ? ' checked' : '') + '" onclick="toggleReqCheck(this)"><input type="checkbox" value="' + esc(cachedAreas[p]) + '"' + (pChecked ? ' checked' : '') + '>' + esc(cachedAreas[p]) + '</label>';
+  }
+  html += '</div></div>';
+
+  // Notes
+  html += '<div class="req-form-group"><label>Notes (optional)</label>';
+  html += '<textarea id="reqNotes">' + esc(existing ? existing.notes : '') + '</textarea></div>';
+
+  // Actions
+  html += '<div class="req-form-actions">';
+  html += '<button class="spm-btn spm-btn-primary" onclick="savePlayerReq(' + (editId || 'null') + ')">Save</button>';
+  html += '<button class="spm-btn spm-btn-secondary" onclick="closeReqForm()">Cancel</button>';
+  html += '</div>';
+
+  document.getElementById('reqFormContent').innerHTML = html;
+  document.getElementById('reqFormOverlay').classList.add('active');
+}
+
+function toggleReqCheck(label) {
+  var cb = label.querySelector('input');
+  // Timeout so the native click toggles first
+  setTimeout(function() { label.classList.toggle('checked', cb.checked); }, 0);
+}
+
+function getCheckedValues(containerId) {
+  var checks = document.querySelectorAll('#' + containerId + ' input:checked');
+  var vals = [];
+  for (var i = 0; i < checks.length; i++) vals.push(checks[i].value);
+  return vals;
+}
+
+async function savePlayerReq(editId) {
+  var data = {
+    member_number: currentPlayer.member_number,
+    formats: getCheckedValues('reqFormats'),
+    preferred_days: getCheckedValues('reqDays'),
+    available_areas: getCheckedValues('reqAvailAreas'),
+    preferred_areas: getCheckedValues('reqPrefAreas'),
+    notes: document.getElementById('reqNotes').value.trim()
+  };
+
+  if (data.formats.length === 0) { showToast('Select at least one format.', 'warn'); return; }
+
+  try {
+    var headers = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+    if (editId) {
+      await fetch(SUPABASE_URL + '/rest/v1/player_requests?id=eq.' + editId, { method: 'PATCH', headers: headers, body: JSON.stringify(data) });
+    } else {
+      await fetch(SUPABASE_URL + '/rest/v1/player_requests', { method: 'POST', headers: headers, body: JSON.stringify(data) });
+    }
+    closeReqForm();
+    loadMyRequests();
+  } catch (e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function deletePlayerReq(id) {
+  if (!confirm('Delete this request?')) return;
+  try {
+    await fetch(SUPABASE_URL + '/rest/v1/player_requests?id=eq.' + id, { method: 'DELETE', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY } });
+    loadMyRequests();
+  } catch (e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+// ── Team Request Form ──────────────────────────────────────────
+function showTeamReqForm(editId) {
+  var existing = editId ? myTeamRequests.find(function(r) { return r.id === editId; }) : null;
+  var regs = window._dashRegs || [];
+
+  var html = '<h3>' + (existing ? 'Edit' : 'New') + ' — Looking for Players</h3>';
+
+  // Team picker
+  html += '<div class="req-form-group"><label>Team</label><select id="reqTeamSelect">';
+  for (var i = 0; i < regs.length; i++) {
+    var sel = existing && existing.registration_id === regs[i].id ? ' selected' : '';
+    html += '<option value="' + regs[i].id + '"' + sel + '>' + esc(regs[i].team_name) + ' (' + esc(regs[i].format) + ')</option>';
+  }
+  html += '</select></div>';
+
+  // 8-ball skill
+  html += '<div class="req-form-group"><label>8-Ball Skill Level Needed</label>';
+  html += '<input type="text" id="reqSkill8" placeholder="Any, 3, 3-5, etc." value="' + esc(existing ? existing.skill_8 : 'Any') + '"></div>';
+
+  // 9-ball skill
+  html += '<div class="req-form-group"><label>9-Ball Skill Level Needed</label>';
+  html += '<input type="text" id="reqSkill9" placeholder="Any, 3, 3-5, etc." value="' + esc(existing ? existing.skill_9 : 'Any') + '"></div>';
+
+  // Notes
+  html += '<div class="req-form-group"><label>Notes (optional)</label>';
+  html += '<textarea id="reqTeamNotes">' + esc(existing ? existing.notes : '') + '</textarea></div>';
+
+  html += '<div class="req-form-actions">';
+  html += '<button class="spm-btn spm-btn-primary" onclick="saveTeamReq(' + (editId || 'null') + ')">Save</button>';
+  html += '<button class="spm-btn spm-btn-secondary" onclick="closeReqForm()">Cancel</button>';
+  html += '</div>';
+
+  document.getElementById('reqFormContent').innerHTML = html;
+  document.getElementById('reqFormOverlay').classList.add('active');
+}
+
+async function saveTeamReq(editId) {
+  var data = {
+    member_number: currentPlayer.member_number,
+    registration_id: parseInt(document.getElementById('reqTeamSelect').value, 10),
+    skill_8: document.getElementById('reqSkill8').value.trim() || 'Any',
+    skill_9: document.getElementById('reqSkill9').value.trim() || 'Any',
+    notes: document.getElementById('reqTeamNotes').value.trim()
+  };
+
+  try {
+    var headers = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+    if (editId) {
+      await fetch(SUPABASE_URL + '/rest/v1/team_requests?id=eq.' + editId, { method: 'PATCH', headers: headers, body: JSON.stringify(data) });
+    } else {
+      await fetch(SUPABASE_URL + '/rest/v1/team_requests', { method: 'POST', headers: headers, body: JSON.stringify(data) });
+    }
+    closeReqForm();
+    loadMyRequests();
+  } catch (e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+async function deleteTeamReq(id) {
+  if (!confirm('Delete this request?')) return;
+  try {
+    await fetch(SUPABASE_URL + '/rest/v1/team_requests?id=eq.' + id, { method: 'DELETE', headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY } });
+    loadMyRequests();
+  } catch (e) { showToast('Error: ' + e.message, 'error'); }
+}
+
+function closeReqForm() {
+  document.getElementById('reqFormOverlay').classList.remove('active');
 }
 </script>
 </body>

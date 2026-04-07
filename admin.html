@@ -229,13 +229,14 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Admin &middot; v0.91</div>
+      <div class="app-pill">Admin &middot; v0.92</div>
     </div>
   </div>
 
   <!-- ═══ Tabs ═══ -->
   <div style="display:flex;gap:4px;margin-bottom:16px;flex-wrap:wrap">
     <button class="tab-btn active" onclick="switchTab('registrations')">Registrations</button>
+    <button class="tab-btn" onclick="switchTab('requests')">Requests</button>
     <button class="tab-btn" onclick="switchTab('import')">Import Player Data</button>
     <button class="tab-btn" onclick="switchTab('divisions')">Divisions</button>
     <button class="tab-btn" onclick="switchTab('areas')">Areas</button>
@@ -365,6 +366,22 @@
     </div>
   </div>
 
+  <!-- ═══ Tab: Requests ═══ -->
+  <div id="tabRequests" class="hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3 style="margin:0">Player &amp; Team Requests</h3>
+      <label style="font-size:0.8rem;cursor:pointer;display:flex;align-items:center;gap:4px">
+        <input type="checkbox" id="hideFilledCheck" onchange="renderAdminRequests()"> Hide filled
+      </label>
+    </div>
+
+    <h4 style="margin:16px 0 8px;color:var(--spm-accent)">Players Looking for Teams</h4>
+    <div style="overflow-x:auto"><div id="adminPlayerReqs">Loading...</div></div>
+
+    <h4 style="margin:16px 0 8px;color:var(--spm-accent)">Teams Looking for Players</h4>
+    <div style="overflow-x:auto"><div id="adminTeamReqs">Loading...</div></div>
+  </div>
+
   <div class="spm-footer">South Portland Metro APA &middot; Team Registration Admin</div>
 </div>
 
@@ -400,7 +417,7 @@ var SB_HEADERS_ANON = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' 
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase apps table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.91';
+var APP_VERSION = '0.92';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -1040,7 +1057,7 @@ loadStats();
 // Tab Switching
 // ════════════════════════════════════════════════════════════════════
 function switchTab(tab) {
-  var tabs = { import: 'tabImport', divisions: 'tabDivisions', areas: 'tabAreas', formats: 'tabFormats', registrations: 'tabRegistrations' };
+  var tabs = { import: 'tabImport', divisions: 'tabDivisions', areas: 'tabAreas', formats: 'tabFormats', registrations: 'tabRegistrations', requests: 'tabRequests' };
   for (var k in tabs) {
     document.getElementById(tabs[k]).classList.toggle('hidden', k !== tab);
   }
@@ -1050,7 +1067,8 @@ function switchTab(tab) {
                 (tab === 'divisions' && btns[i].textContent === 'Divisions') ||
                 (tab === 'areas' && btns[i].textContent === 'Areas') ||
                 (tab === 'formats' && btns[i].textContent === 'Formats') ||
-                (tab === 'registrations' && btns[i].textContent === 'Registrations');
+                (tab === 'registrations' && btns[i].textContent === 'Registrations') ||
+                (tab === 'requests' && btns[i].textContent === 'Requests');
     btns[i].classList.toggle('active', match);
   }
 }
@@ -1806,11 +1824,155 @@ function csvEsc(val) {
   return s;
 }
 
+// ================================================================
+// Admin Requests — view all player/team requests, mark filled, delete
+// ================================================================
+var allPlayerRequests = [];
+var allTeamRequests = [];
+var reqPlayerSort = { col: 'created_at', dir: 'desc' };
+var reqTeamSort = { col: 'created_at', dir: 'desc' };
+
+async function loadAdminRequests() {
+  try {
+    var pr = await fetch(SUPABASE_URL + '/rest/v1/player_requests?order=created_at.desc', { headers: sbHeaders(false) });
+    if (pr.ok) allPlayerRequests = await pr.json();
+    var tr = await fetch(SUPABASE_URL + '/rest/v1/team_requests?order=created_at.desc', { headers: sbHeaders(false) });
+    if (tr.ok) allTeamRequests = await tr.json();
+  } catch (e) {}
+  renderAdminRequests();
+}
+
+function renderAdminRequests() {
+  var hideFilled = document.getElementById('hideFilledCheck') && document.getElementById('hideFilledCheck').checked;
+
+  // Player requests table
+  var pReqs = hideFilled ? allPlayerRequests.filter(function(r) { return !r.filled; }) : allPlayerRequests;
+  renderAdminPlayerReqTable(pReqs);
+
+  // Team requests table
+  var tReqs = hideFilled ? allTeamRequests.filter(function(r) { return !r.filled; }) : allTeamRequests;
+  renderAdminTeamReqTable(tReqs);
+}
+
+function renderAdminPlayerReqTable(reqs) {
+  if (reqs.length === 0) {
+    document.getElementById('adminPlayerReqs').innerHTML = '<div style="color:var(--muted);padding:12px;text-align:center">No player requests.</div>';
+    return;
+  }
+
+  // Need player names — fetch from player_names
+  var mns = reqs.map(function(r) { return r.member_number; });
+  fetch(SUPABASE_URL + '/rest/v1/player_names?member_number=in.(' + mns.join(',') + ')&select=member_number,first_name,last_name', { headers: sbHeaders(false) })
+    .then(function(r) { return r.ok ? r.json() : []; })
+    .then(function(names) {
+      var nameMap = {};
+      for (var i = 0; i < names.length; i++) nameMap[names[i].member_number] = names[i].first_name + ' ' + names[i].last_name;
+
+      var html = '<table class="reg-table"><thead><tr>';
+      html += '<th>Player</th><th>Format(s)</th><th>Day(s)</th><th>Areas</th><th>Notes</th><th>Status</th><th>Actions</th>';
+      html += '</tr></thead><tbody>';
+
+      for (var j = 0; j < reqs.length; j++) {
+        var r = reqs[j];
+        var name = nameMap[r.member_number] || '#' + r.member_number;
+        var rowClass = r.filled ? ' style="opacity:0.5"' : '';
+        html += '<tr' + rowClass + '>';
+        html += '<td><strong>' + esc(name) + '</strong><br><span style="font-size:0.7rem;color:var(--muted)">#' + esc(r.member_number) + '</span></td>';
+        html += '<td style="font-size:0.8rem">' + esc((r.formats || []).join(', ')) + '</td>';
+        html += '<td style="font-size:0.8rem">' + esc((r.preferred_days || []).join(', ')) + '</td>';
+        html += '<td style="font-size:0.75rem">';
+        if (r.preferred_areas && r.preferred_areas.length) html += '<strong>Pref:</strong> ' + esc(r.preferred_areas.join(', ')) + '<br>';
+        if (r.available_areas && r.available_areas.length) html += '<strong>Avail:</strong> ' + esc(r.available_areas.join(', '));
+        html += '</td>';
+        html += '<td style="font-size:0.8rem;max-width:150px">' + esc(r.notes || '') + '</td>';
+        html += '<td>' + (r.filled ? '<span style="color:#28a745;font-weight:600">Filled</span>' : '<span style="color:var(--muted)">Open</span>') + '</td>';
+        html += '<td style="white-space:nowrap">';
+        if (!r.filled) html += '<button class="spm-btn spm-btn-primary" style="font-size:0.7rem;padding:3px 8px;margin-right:4px" onclick="markReqFilled(\'player_requests\',' + r.id + ')">Fill</button>';
+        else html += '<button class="spm-btn spm-btn-secondary" style="font-size:0.7rem;padding:3px 8px;margin-right:4px" onclick="markReqUnfilled(\'player_requests\',' + r.id + ')">Reopen</button>';
+        html += '<button class="spm-btn spm-btn-danger" style="font-size:0.7rem;padding:3px 8px;background:#dc3545;color:#fff;border-color:#dc3545" onclick="adminDeleteReq(\'player_requests\',' + r.id + ')">Delete</button>';
+        html += '</td></tr>';
+      }
+
+      html += '</tbody></table>';
+      document.getElementById('adminPlayerReqs').innerHTML = html;
+    });
+}
+
+function renderAdminTeamReqTable(reqs) {
+  if (reqs.length === 0) {
+    document.getElementById('adminTeamReqs').innerHTML = '<div style="color:var(--muted);padding:12px;text-align:center">No team requests.</div>';
+    return;
+  }
+
+  // Need team names + player names
+  var regIds = reqs.map(function(r) { return r.registration_id; });
+  var mns = reqs.map(function(r) { return r.member_number; });
+
+  Promise.all([
+    fetch(SUPABASE_URL + '/rest/v1/team_registrations?id=in.(' + regIds.join(',') + ')&select=id,team_name,format', { headers: sbHeaders(false) }).then(function(r) { return r.ok ? r.json() : []; }),
+    fetch(SUPABASE_URL + '/rest/v1/player_names?member_number=in.(' + mns.join(',') + ')&select=member_number,first_name,last_name', { headers: sbHeaders(false) }).then(function(r) { return r.ok ? r.json() : []; })
+  ]).then(function(results) {
+    var regMap = {};
+    for (var i = 0; i < results[0].length; i++) regMap[results[0][i].id] = results[0][i];
+    var nameMap = {};
+    for (var j = 0; j < results[1].length; j++) nameMap[results[1][j].member_number] = results[1][j].first_name + ' ' + results[1][j].last_name;
+
+    var html = '<table class="reg-table"><thead><tr>';
+    html += '<th>Team</th><th>Captain</th><th>8-Ball SL</th><th>9-Ball SL</th><th>Notes</th><th>Status</th><th>Actions</th>';
+    html += '</tr></thead><tbody>';
+
+    for (var k = 0; k < reqs.length; k++) {
+      var r = reqs[k];
+      var reg = regMap[r.registration_id] || {};
+      var name = nameMap[r.member_number] || '#' + r.member_number;
+      var rowClass = r.filled ? ' style="opacity:0.5"' : '';
+      html += '<tr' + rowClass + '>';
+      html += '<td><strong>' + esc(reg.team_name || 'Unknown') + '</strong><br><span style="font-size:0.7rem;color:var(--muted)">' + esc(reg.format || '') + '</span></td>';
+      html += '<td>' + esc(name) + '</td>';
+      html += '<td style="text-align:center">' + esc(r.skill_8) + '</td>';
+      html += '<td style="text-align:center">' + esc(r.skill_9) + '</td>';
+      html += '<td style="font-size:0.8rem;max-width:150px">' + esc(r.notes || '') + '</td>';
+      html += '<td>' + (r.filled ? '<span style="color:#28a745;font-weight:600">Filled</span>' : '<span style="color:var(--muted)">Open</span>') + '</td>';
+      html += '<td style="white-space:nowrap">';
+      if (!r.filled) html += '<button class="spm-btn spm-btn-primary" style="font-size:0.7rem;padding:3px 8px;margin-right:4px" onclick="markReqFilled(\'team_requests\',' + r.id + ')">Fill</button>';
+      else html += '<button class="spm-btn spm-btn-secondary" style="font-size:0.7rem;padding:3px 8px;margin-right:4px" onclick="markReqUnfilled(\'team_requests\',' + r.id + ')">Reopen</button>';
+      html += '<button class="spm-btn spm-btn-danger" style="font-size:0.7rem;padding:3px 8px;background:#dc3545;color:#fff;border-color:#dc3545" onclick="adminDeleteReq(\'team_requests\',' + r.id + ')">Delete</button>';
+      html += '</td></tr>';
+    }
+
+    html += '</tbody></table>';
+    document.getElementById('adminTeamReqs').innerHTML = html;
+  });
+}
+
+async function markReqFilled(table, id) {
+  await fetch(SUPABASE_URL + '/rest/v1/' + table + '?id=eq.' + id, {
+    method: 'PATCH', headers: sbHeaders(true), body: JSON.stringify({ filled: true })
+  });
+  loadAdminRequests();
+}
+
+async function markReqUnfilled(table, id) {
+  await fetch(SUPABASE_URL + '/rest/v1/' + table + '?id=eq.' + id, {
+    method: 'PATCH', headers: sbHeaders(true), body: JSON.stringify({ filled: false })
+  });
+  loadAdminRequests();
+}
+
+async function adminDeleteReq(table, id) {
+  if (!confirm('Are you sure you want to delete this request? This cannot be undone.')) return;
+  await fetch(SUPABASE_URL + '/rest/v1/' + table + '?id=eq.' + id, {
+    method: 'DELETE', headers: sbHeaders(true)
+  });
+  loadAdminRequests();
+}
+
 // Init
 loadAreas();
 loadDivisions();
 loadFormats();
 loadRegistrations();
+loadAdminRequests();
 
 </script>
 </body>

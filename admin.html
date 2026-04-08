@@ -229,7 +229,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Admin &middot; v0.95</div>
+      <div class="app-pill">Admin &middot; v0.96</div>
     </div>
   </div>
 
@@ -417,7 +417,7 @@ var SB_HEADERS_ANON = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' 
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase apps table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.95';
+var APP_VERSION = '0.96';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -1927,7 +1927,12 @@ function renderAdminTeamReqTable(reqs) {
       var name = nameMap[r.member_number] || '#' + r.member_number;
       var rowClass = r.filled ? ' style="opacity:0.5"' : '';
       html += '<tr' + rowClass + '>';
-      html += '<td><strong>' + esc(reg.team_name || 'Unknown') + '</strong><br><span style="font-size:0.7rem;color:var(--muted)">' + esc(reg.format || '') + '</span></td>';
+      var teamLabel = reg.team_name ? esc(reg.team_name) : '<em>New Team</em>';
+      var fmtLabel = reg.format || r.format || '';
+      var dayArea = '';
+      if (r.day) dayArea += esc(r.day);
+      if (r.area) dayArea += (dayArea ? ' — ' : '') + esc(r.area);
+      html += '<td><strong>' + teamLabel + '</strong><br><span style="font-size:0.7rem;color:var(--muted)">' + esc(fmtLabel) + (dayArea ? ' &middot; ' + dayArea : '') + '</span></td>';
       html += '<td>' + esc(name) + '</td>';
       html += '<td style="text-align:center">' + esc(r.skill_8) + '</td>';
       html += '<td style="text-align:center">' + esc(r.skill_9) + '</td>';

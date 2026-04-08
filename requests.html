@@ -134,7 +134,7 @@
   </div>
 
   <!-- Looking for Players -->
-  <div class="req-section" id="teamReqSection" style="display:none">
+  <div class="req-section" id="teamReqSection">
     <div class="req-section-header">
       <div>
         <div class="req-section-title">📢 Recruiting</div>
@@ -208,8 +208,6 @@ var areas = [];
   // Load registrations (for team requests)
   var rResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?submitted_by=eq.' + memberNumber + '&select=id,team_name,format', { headers: SB });
   if (rResp.ok) myRegs = await rResp.json();
-  if (myRegs.length > 0) document.getElementById('teamReqSection').style.display = '';
-
   loadRequests();
 })();
 
@@ -258,10 +256,17 @@ function renderTeamReqs() {
   var html = '';
   for (var i = 0; i < myTeamReqs.length; i++) {
     var r = myTeamReqs[i];
-    var reg = myRegs.find(function(g) { return g.id === r.registration_id; });
+    var reg = r.registration_id ? myRegs.find(function(g) { return g.id === r.registration_id; }) : null;
     html += '<div class="req-card">';
-    html += '<div class="req-card-title">' + esc(reg ? reg.team_name : 'Unknown Team') + '</div>';
+    if (reg) {
+      html += '<div class="req-card-title">' + esc(reg.team_name) + '</div>';
+    } else {
+      html += '<div class="req-card-title">New Team</div>';
+    }
     html += '<div class="req-tags">';
+    if (r.format) html += '<span class="req-tag format">' + esc(r.format) + '</span>';
+    if (r.day) html += '<span class="req-tag day">' + esc(r.day) + '</span>';
+    if (r.area) html += '<span class="req-tag area">' + esc(r.area) + '</span>';
     if (r.skill_8 !== 'Any') html += '<span class="req-tag skill">8-Ball: ' + esc(r.skill_8) + '</span>';
     if (r.skill_9 !== 'Any') html += '<span class="req-tag skill">9-Ball: ' + esc(r.skill_9) + '</span>';
     if (r.skill_8 === 'Any' && r.skill_9 === 'Any') html += '<span class="req-tag skill">Any skill level</span>';
@@ -326,15 +331,58 @@ function showPlayerForm(editId) {
 // ── Team Request Form ───────────────────────────────────────────
 function showTeamForm(editId) {
   var existing = editId ? myTeamReqs.find(function(r) { return r.id === editId; }) : null;
+  var hasRegs = myRegs.length > 0;
+  var isLinked = existing ? !!existing.registration_id : hasRegs;
+  var days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
   var html = '<h3>' + (existing ? 'Edit' : 'New') + ' — Looking for Players</h3>';
 
-  html += '<div class="form-group"><label>Team</label><select id="fTeam">';
+  if (hasRegs) {
+    // Toggle: registered team vs new/unregistered
+    html += '<div class="form-group"><label>Team Source</label><select id="fTeamSource" onchange="toggleTeamSource()">';
+    html += '<option value="registered"' + (isLinked ? ' selected' : '') + '>My registered team</option>';
+    html += '<option value="new"' + (!isLinked ? ' selected' : '') + '>New / unregistered team</option>';
+    html += '</select></div>';
+  }
+
+  // Registered team picker
+  var regDisplay = (hasRegs && isLinked) ? '' : 'display:none';
+  html += '<div id="fRegFields" style="' + regDisplay + '">';
+  html += '<div class="form-group"><label>Team</label><select id="fTeam"><option value="">-- Select --</option>';
   for (var i = 0; i < myRegs.length; i++) {
     var sel = existing && existing.registration_id === myRegs[i].id ? ' selected' : '';
     html += '<option value="' + myRegs[i].id + '"' + sel + '>' + esc(myRegs[i].team_name) + ' (' + esc(myRegs[i].format) + ')</option>';
   }
+  html += '</select></div></div>';
+
+  // Manual fields (for new/unregistered)
+  var manDisplay = (!hasRegs || !isLinked) ? '' : 'display:none';
+  html += '<div id="fManualFields" style="' + manDisplay + '">';
+
+  // Format
+  html += '<div class="form-group"><label>Format</label><select id="fTeamFormat"><option value="">-- Select --</option>';
+  for (var f = 0; f < formats.length; f++) {
+    var fSel = existing && existing.format === formats[f] ? ' selected' : '';
+    html += '<option' + fSel + '>' + esc(formats[f]) + '</option>';
+  }
   html += '</select></div>';
+
+  // Day
+  html += '<div class="form-group"><label>Day</label><select id="fTeamDay"><option value="">-- Any --</option>';
+  for (var d = 0; d < days.length; d++) {
+    var dSel = existing && existing.day === days[d] ? ' selected' : '';
+    html += '<option' + dSel + '>' + esc(days[d]) + '</option>';
+  }
+  html += '</select></div>';
+
+  // Area
+  html += '<div class="form-group"><label>Area</label><select id="fTeamArea"><option value="">-- Any --</option>';
+  for (var a = 0; a < areas.length; a++) {
+    var aSel = existing && existing.area === areas[a] ? ' selected' : '';
+    html += '<option' + aSel + '>' + esc(areas[a]) + '</option>';
+  }
+  html += '</select></div>';
+  html += '</div>';
 
   html += '<div class="form-group"><label>8-Ball Skill Level Needed</label>';
   html += '<input type="text" id="fSkill8" placeholder="Any, 3, 3-5, etc." value="' + esc(existing ? existing.skill_8 : 'Any') + '"></div>';
@@ -366,6 +414,12 @@ function getChecked(id) {
 
 function closeForm() { document.getElementById('formOverlay').classList.remove('active'); }
 
+function toggleTeamSource() {
+  var src = document.getElementById('fTeamSource').value;
+  document.getElementById('fRegFields').style.display = src === 'registered' ? '' : 'none';
+  document.getElementById('fManualFields').style.display = src === 'new' ? '' : 'none';
+}
+
 // ── Save / Delete ───────────────────────────────────────────────
 async function savePlayerReq(editId, addAnother) {
   var fmt = document.getElementById('fFormat').value;
@@ -392,13 +446,31 @@ async function savePlayerReq(editId, addAnother) {
 }
 
 async function saveTeamReq(editId) {
+  var srcEl = document.getElementById('fTeamSource');
+  var isRegistered = srcEl ? srcEl.value === 'registered' : false;
+
   var data = {
     member_number: memberNumber,
-    registration_id: parseInt(document.getElementById('fTeam').value, 10),
     skill_8: document.getElementById('fSkill8').value.trim() || 'Any',
     skill_9: document.getElementById('fSkill9').value.trim() || 'Any',
     notes: document.getElementById('fTeamNotes').value.trim()
   };
+
+  if (isRegistered) {
+    var regId = document.getElementById('fTeam').value;
+    if (!regId) { showToast('Select a team.'); return; }
+    data.registration_id = parseInt(regId, 10);
+    data.format = '';
+    data.day = '';
+    data.area = '';
+  } else {
+    var fmt = document.getElementById('fTeamFormat').value;
+    if (!fmt) { showToast('Select a format.'); return; }
+    data.registration_id = null;
+    data.format = fmt;
+    data.day = document.getElementById('fTeamDay').value;
+    data.area = document.getElementById('fTeamArea').value;
+  }
 
   if (editId) {
     await fetch(SUPABASE_URL + '/rest/v1/team_requests?id=eq.' + editId, { method: 'PATCH', headers: SBW, body: JSON.stringify(data) });

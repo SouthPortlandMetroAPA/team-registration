@@ -206,8 +206,20 @@ var areas = [];
   if (aResp.ok) areas = (await aResp.json()).map(function(a) { return a.name; });
 
   // Load registrations (for team requests)
-  var rResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?submitted_by=eq.' + memberNumber + '&select=id,team_name,format', { headers: SB });
-  if (rResp.ok) myRegs = await rResp.json();
+  // Load all teams the player is on (via roster), not just ones they submitted
+  var rosterResp = await fetch(SUPABASE_URL + '/rest/v1/registration_roster?member_number=eq.' + memberNumber + '&select=registration_id', { headers: SB });
+  var rosterRows = rosterResp.ok ? await rosterResp.json() : [];
+  // Also include teams they submitted (they might not be on the roster yet)
+  var subResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?submitted_by=eq.' + memberNumber + '&select=id', { headers: SB });
+  var subRows = subResp.ok ? await subResp.json() : [];
+  var regIds = {};
+  for (var ri = 0; ri < rosterRows.length; ri++) regIds[rosterRows[ri].registration_id] = true;
+  for (var si = 0; si < subRows.length; si++) regIds[subRows[si].id] = true;
+  var ids = Object.keys(regIds);
+  if (ids.length > 0) {
+    var rResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?id=in.(' + ids.join(',') + ')&select=id,team_name,format', { headers: SB });
+    if (rResp.ok) myRegs = await rResp.json();
+  }
   loadRequests();
 })();
 
@@ -250,7 +262,7 @@ function renderPlayerReqs() {
 function renderTeamReqs() {
   var el = document.getElementById('teamReqList');
   if (myTeamReqs.length === 0) {
-    el.innerHTML = '<div class="empty-msg">No active requests. Need a ringer? Hit <strong>+ New Request</strong>!</div>';
+    el.innerHTML = '<div class="empty-msg">No active requests. Need another player? Hit <strong>+ New Request</strong>!</div>';
     return;
   }
   var html = '';

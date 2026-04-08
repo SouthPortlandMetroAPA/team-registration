@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Help Requests — South Portland Metro APA</title>
+  <link rel="stylesheet" href="https://southportlandmetroapa.github.io/shared/spm-base.css">
+  <style>
+    .spm-header .title { font-size: 1.5rem; font-weight: 900; line-height: 1.08; margin: 0; }
+    .spm-header .subtitle-group { display: inline-block; margin-top: 8px; }
+    .spm-header .subtitle { font-size: 1.6rem; font-weight: 400; font-style: italic; opacity: 0.95; margin: 0; }
+    .spm-header .app-pill {
+      display: inline-block; margin-top: 4px; padding: 3px 14px; border-radius: 999px;
+      font-size: 0.65rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+      background: rgba(255,255,255,0.2); color: #fff; border: 1.5px solid rgba(255,255,255,0.5);
+    }
+
+    .greeting { text-align: center; margin: 24px 0 16px; font-size: 1.1rem; }
+    .greeting strong { font-weight: 700; }
+
+    /* ── Sections ──────────────────────────────────────────────────── */
+    .req-section { margin-bottom: 28px; }
+    .req-section-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 10px; padding-bottom: 8px; border-bottom: 2px solid var(--spm-accent);
+    }
+    .req-section-title { font-size: 1rem; font-weight: 800; color: var(--spm-accent); }
+    .req-section-subtitle { font-size: 0.8rem; color: var(--muted); font-style: italic; }
+    .req-add-btn {
+      font-size: 0.8rem; padding: 6px 16px; border-radius: 999px; cursor: pointer;
+      background: var(--spm-accent); color: #fff; border: none; font-family: inherit; font-weight: 700;
+      transition: transform 0.1s;
+    }
+    .req-add-btn:active { transform: scale(0.97); }
+
+    /* ── Request Cards ────────────────────────────────────────────── */
+    .req-card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 14px 18px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    }
+    .req-card-title { font-weight: 700; font-size: 0.95rem; margin-bottom: 6px; }
+    .req-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+    .req-tag {
+      display: inline-block; font-size: 0.7rem; font-weight: 600; padding: 3px 10px;
+      border-radius: 999px;
+    }
+    .req-tag.format { background: #f0f4ff; color: var(--spm-accent); }
+    .req-tag.day { background: #e8f5e9; color: #2e7d32; }
+    .req-tag.area { background: #fff3e0; color: #e65100; }
+    .req-tag.skill { background: #fce4ec; color: #c62828; }
+    .req-detail { font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+    .req-notes { font-size: 0.8rem; color: var(--muted); font-style: italic; margin-top: 4px; }
+    .req-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .req-actions button {
+      font-size: 0.75rem; padding: 5px 14px; border-radius: 10px; cursor: pointer;
+      border: 1px solid var(--border); background: #fff; font-family: inherit; font-weight: 600;
+      transition: all 0.1s;
+    }
+    .req-actions .req-edit:hover { border-color: var(--spm-accent); color: var(--spm-accent); }
+    .req-actions .req-del { color: var(--spm-primary); border-color: var(--spm-primary); }
+    .req-actions .req-del:hover { background: var(--spm-primary); color: #fff; }
+
+    .empty-msg {
+      text-align: center; padding: 24px 16px; color: var(--muted); font-size: 0.9rem;
+      background: #f8f9fa; border-radius: 12px;
+    }
+
+    /* ── Form Modal ───────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center; z-index: 10001; padding: 20px;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+      background: #fff; border-radius: 20px; padding: 24px; max-width: 440px; width: 100%;
+      max-height: 85vh; overflow-y: auto; position: relative;
+    }
+    .modal-box h3 { margin: 0 0 16px; }
+    .form-group { margin-bottom: 14px; }
+    .form-group label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
+    .form-group select, .form-group input, .form-group textarea {
+      width: 100%; border: 2px solid var(--border); border-radius: 10px;
+      padding: 8px 12px; font-size: 0.9rem; font-family: inherit;
+    }
+    .form-group textarea { min-height: 60px; resize: vertical; }
+    .form-group select:focus, .form-group input:focus, .form-group textarea:focus { border-color: var(--spm-accent); outline: none; }
+    .check-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .check-pill {
+      display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem;
+      padding: 5px 12px; border: 1.5px solid var(--border); border-radius: 999px;
+      cursor: pointer; transition: all 0.1s; font-weight: 600;
+    }
+    .check-pill input { display: none; }
+    .check-pill.checked { background: var(--spm-accent); color: #fff; border-color: var(--spm-accent); }
+    .form-actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+
+    /* ── Toast ─────────────────────────────────────────────────────── */
+    .toast-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center; z-index: 10002; padding: 20px;
+    }
+    .toast-overlay.active { display: flex; }
+    .toast-box {
+      background: #fff; border-radius: 16px; padding: 24px 28px;
+      text-align: center; box-shadow: 0 16px 40px rgba(0,0,0,0.35); max-width: 360px; width: 100%;
+    }
+    .toast-icon { font-size: 2.5rem; margin-bottom: 8px; }
+    .toast-icon.warn { color: #ffc107; }
+    .toast-msg { font-size: 0.95rem; font-weight: 500; margin-bottom: 16px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+<div class="spm-page">
+  <div class="spm-header">
+    <h1 class="title">South Portland Metro APA</h1>
+    <div class="subtitle-group">
+      <div class="subtitle">Help Requests</div>
+      <div class="app-pill">Find a Team &middot; Find Players</div>
+    </div>
+  </div>
+
+  <div id="greeting" class="greeting" style="display:none"></div>
+
+  <!-- Looking for a Team -->
+  <div class="req-section">
+    <div class="req-section-header">
+      <div>
+        <div class="req-section-title">🏖️ Free Agent</div>
+        <div class="req-section-subtitle">Looking for a team to call home</div>
+      </div>
+      <button class="req-add-btn" onclick="showPlayerForm()">+ New Request</button>
+    </div>
+    <div id="playerReqList"></div>
+  </div>
+
+  <!-- Looking for Players -->
+  <div class="req-section" id="teamReqSection" style="display:none">
+    <div class="req-section-header">
+      <div>
+        <div class="req-section-title">📢 Recruiting</div>
+        <div class="req-section-subtitle">Your team needs fresh talent</div>
+      </div>
+      <button class="req-add-btn" onclick="showTeamForm()">+ New Request</button>
+    </div>
+    <div id="teamReqList"></div>
+  </div>
+
+  <div style="text-align:center;margin-top:16px">
+    <button class="spm-btn spm-btn-secondary" onclick="window.close()" style="font-size:0.85rem;padding:8px 16px">Close</button>
+  </div>
+
+  <div class="spm-footer">South Portland Metro APA</div>
+</div>
+
+<!-- Form Modal -->
+<div class="modal-overlay" id="formOverlay" onclick="if(event.target===this)closeForm()">
+  <div class="modal-box" id="formContent"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast-overlay" id="toastOverlay">
+  <div class="toast-box">
+    <div class="toast-icon warn" id="toastIcon">⚠</div>
+    <div class="toast-msg" id="toastMsg"></div>
+    <button class="spm-btn spm-btn-primary" onclick="hideToast()">OK</button>
+  </div>
+</div>
+
+<script>
+var SUPABASE_URL = 'https://dqzbekoaysgaiqljueac.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxemJla29heXNnYWlxbGp1ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNzA5NzgsImV4cCI6MjA5MDc0Njk3OH0.cCdGxZ4zEFzU_r6lWSDeoNWG67Q4MSYCAtpds035dfU';
+var SB = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY };
+var SBW = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+
+function esc(s) { var d = document.createElement('div'); d.textContent = String(s || ''); return d.innerHTML; }
+function showToast(msg) { document.getElementById('toastMsg').textContent = msg; document.getElementById('toastOverlay').classList.add('active'); }
+function hideToast() { document.getElementById('toastOverlay').classList.remove('active'); }
+
+var memberNumber = new URLSearchParams(window.location.search).get('m') || '';
+var currentPlayer = null;
+var myPlayerReqs = [];
+var myTeamReqs = [];
+var myRegs = [];
+var formats = [];
+var areas = [];
+
+// ── Init ────────────────────────────────────────────────────────
+(async function init() {
+  if (!memberNumber) { document.getElementById('greeting').innerHTML = 'No player specified.'; document.getElementById('greeting').style.display = ''; return; }
+
+  // Load player info
+  var pResp = await fetch(SUPABASE_URL + '/rest/v1/player_full?member_number=eq.' + memberNumber + '&select=member_number,first_name,nickname,last_name', { headers: SB });
+  if (pResp.ok) { var pData = await pResp.json(); if (pData.length) currentPlayer = pData[0]; }
+  if (!currentPlayer) { document.getElementById('greeting').innerHTML = 'Player not found.'; document.getElementById('greeting').style.display = ''; return; }
+
+  var name = esc(currentPlayer.first_name);
+  if (currentPlayer.nickname) name += ' <em>"' + esc(currentPlayer.nickname) + '"</em>';
+  name += ' ' + esc(currentPlayer.last_name);
+  document.getElementById('greeting').innerHTML = 'Hello <strong>' + name + '</strong>';
+  document.getElementById('greeting').style.display = '';
+
+  // Load formats + areas
+  var fResp = await fetch(SUPABASE_URL + '/rest/v1/formats?select=name&order=display_order', { headers: SB });
+  if (fResp.ok) formats = (await fResp.json()).map(function(f) { return f.name; });
+  var aResp = await fetch(SUPABASE_URL + '/rest/v1/areas?select=name&order=name', { headers: SB });
+  if (aResp.ok) areas = (await aResp.json()).map(function(a) { return a.name; });
+
+  // Load registrations (for team requests)
+  var rResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?submitted_by=eq.' + memberNumber + '&select=id,team_name,format', { headers: SB });
+  if (rResp.ok) myRegs = await rResp.json();
+  if (myRegs.length > 0) document.getElementById('teamReqSection').style.display = '';
+
+  loadRequests();
+})();
+
+async function loadRequests() {
+  var pr = await fetch(SUPABASE_URL + '/rest/v1/player_requests?member_number=eq.' + memberNumber + '&filled=eq.false&order=created_at.desc', { headers: SB });
+  if (pr.ok) myPlayerReqs = await pr.json();
+  var tr = await fetch(SUPABASE_URL + '/rest/v1/team_requests?member_number=eq.' + memberNumber + '&filled=eq.false&order=created_at.desc', { headers: SB });
+  if (tr.ok) myTeamReqs = await tr.json();
+  renderPlayerReqs();
+  renderTeamReqs();
+}
+
+// ── Render Player Requests ──────────────────────────────────────
+function renderPlayerReqs() {
+  var el = document.getElementById('playerReqList');
+  if (myPlayerReqs.length === 0) {
+    el.innerHTML = '<div class="empty-msg">No active requests. Hit <strong>+ New Request</strong> above to get started!</div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < myPlayerReqs.length; i++) {
+    var r = myPlayerReqs[i];
+    html += '<div class="req-card">';
+    html += '<div class="req-tags">';
+    if (r.formats && r.formats.length) html += '<span class="req-tag format">' + esc(r.formats[0]) + '</span>';
+    if (r.preferred_days && r.preferred_days.length) html += '<span class="req-tag day">' + esc(r.preferred_days[0]) + '</span>';
+    html += '</div>';
+    if (r.preferred_areas && r.preferred_areas.length) html += '<div class="req-detail"><strong>Preferred:</strong> ' + esc(r.preferred_areas.join(', ')) + '</div>';
+    if (r.available_areas && r.available_areas.length) html += '<div class="req-detail"><strong>Available:</strong> ' + esc(r.available_areas.join(', ')) + '</div>';
+    if (r.notes) html += '<div class="req-notes">"' + esc(r.notes) + '"</div>';
+    html += '<div class="req-actions">';
+    html += '<button class="req-edit" onclick="showPlayerForm(' + r.id + ')">Edit</button>';
+    html += '<button class="req-del" onclick="deleteReq(\'player_requests\',' + r.id + ')">Delete</button>';
+    html += '</div></div>';
+  }
+  el.innerHTML = html;
+}
+
+// ── Render Team Requests ────────────────────────────────────────
+function renderTeamReqs() {
+  var el = document.getElementById('teamReqList');
+  if (myTeamReqs.length === 0) {
+    el.innerHTML = '<div class="empty-msg">No active requests. Need a ringer? Hit <strong>+ New Request</strong>!</div>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < myTeamReqs.length; i++) {
+    var r = myTeamReqs[i];
+    var reg = myRegs.find(function(g) { return g.id === r.registration_id; });
+    html += '<div class="req-card">';
+    html += '<div class="req-card-title">' + esc(reg ? reg.team_name : 'Unknown Team') + '</div>';
+    html += '<div class="req-tags">';
+    if (r.skill_8 !== 'Any') html += '<span class="req-tag skill">8-Ball: ' + esc(r.skill_8) + '</span>';
+    if (r.skill_9 !== 'Any') html += '<span class="req-tag skill">9-Ball: ' + esc(r.skill_9) + '</span>';
+    if (r.skill_8 === 'Any' && r.skill_9 === 'Any') html += '<span class="req-tag skill">Any skill level</span>';
+    html += '</div>';
+    if (r.notes) html += '<div class="req-notes">"' + esc(r.notes) + '"</div>';
+    html += '<div class="req-actions">';
+    html += '<button class="req-edit" onclick="showTeamForm(' + r.id + ')">Edit</button>';
+    html += '<button class="req-del" onclick="deleteReq(\'team_requests\',' + r.id + ')">Delete</button>';
+    html += '</div></div>';
+  }
+  el.innerHTML = html;
+}
+
+// ── Player Request Form ─────────────────────────────────────────
+function showPlayerForm(editId) {
+  var existing = editId ? myPlayerReqs.find(function(r) { return r.id === editId; }) : null;
+  var days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+  var html = '<h3>' + (existing ? 'Edit' : 'New') + ' — Looking for a Team</h3>';
+
+  // Format
+  var selFmt = existing && existing.formats && existing.formats.length ? existing.formats[0] : '';
+  html += '<div class="form-group"><label>Format</label><select id="fFormat"><option value="">-- Select --</option>';
+  for (var f = 0; f < formats.length; f++) html += '<option' + (formats[f] === selFmt ? ' selected' : '') + '>' + esc(formats[f]) + '</option>';
+  html += '</select></div>';
+
+  // Day
+  var selDay = existing && existing.preferred_days && existing.preferred_days.length ? existing.preferred_days[0] : '';
+  html += '<div class="form-group"><label>Preferred Day</label><select id="fDay"><option value="">-- Any --</option>';
+  for (var d = 0; d < days.length; d++) html += '<option' + (days[d] === selDay ? ' selected' : '') + '>' + esc(days[d]) + '</option>';
+  html += '</select></div>';
+
+  // Available Areas
+  html += '<div class="form-group"><label>Available Areas</label><div class="check-pills" id="fAvailAreas">';
+  for (var a = 0; a < areas.length; a++) {
+    var ac = existing && existing.available_areas && existing.available_areas.indexOf(areas[a]) !== -1;
+    html += '<label class="check-pill' + (ac ? ' checked' : '') + '" onclick="togglePill(this)"><input type="checkbox" value="' + esc(areas[a]) + '"' + (ac ? ' checked' : '') + '>' + esc(areas[a]) + '</label>';
+  }
+  html += '</div></div>';
+
+  // Preferred Areas
+  html += '<div class="form-group"><label>Preferred Areas</label><div class="check-pills" id="fPrefAreas">';
+  for (var p = 0; p < areas.length; p++) {
+    var pc = existing && existing.preferred_areas && existing.preferred_areas.indexOf(areas[p]) !== -1;
+    html += '<label class="check-pill' + (pc ? ' checked' : '') + '" onclick="togglePill(this)"><input type="checkbox" value="' + esc(areas[p]) + '"' + (pc ? ' checked' : '') + '>' + esc(areas[p]) + '</label>';
+  }
+  html += '</div></div>';
+
+  // Notes
+  html += '<div class="form-group"><label>Notes (optional)</label><textarea id="fNotes">' + esc(existing ? existing.notes : '') + '</textarea></div>';
+
+  html += '<div class="form-actions">';
+  html += '<button class="spm-btn spm-btn-primary" onclick="savePlayerReq(' + (editId || 'null') + ',false)">Save</button>';
+  if (!editId) html += '<button class="spm-btn spm-btn-primary" style="background:var(--spm-accent)" onclick="savePlayerReq(null,true)">Save + Add Another</button>';
+  html += '<button class="spm-btn spm-btn-secondary" onclick="closeForm()">Cancel</button>';
+  html += '</div>';
+
+  document.getElementById('formContent').innerHTML = html;
+  document.getElementById('formOverlay').classList.add('active');
+}
+
+// ── Team Request Form ───────────────────────────────────────────
+function showTeamForm(editId) {
+  var existing = editId ? myTeamReqs.find(function(r) { return r.id === editId; }) : null;
+
+  var html = '<h3>' + (existing ? 'Edit' : 'New') + ' — Looking for Players</h3>';
+
+  html += '<div class="form-group"><label>Team</label><select id="fTeam">';
+  for (var i = 0; i < myRegs.length; i++) {
+    var sel = existing && existing.registration_id === myRegs[i].id ? ' selected' : '';
+    html += '<option value="' + myRegs[i].id + '"' + sel + '>' + esc(myRegs[i].team_name) + ' (' + esc(myRegs[i].format) + ')</option>';
+  }
+  html += '</select></div>';
+
+  html += '<div class="form-group"><label>8-Ball Skill Level Needed</label>';
+  html += '<input type="text" id="fSkill8" placeholder="Any, 3, 3-5, etc." value="' + esc(existing ? existing.skill_8 : 'Any') + '"></div>';
+
+  html += '<div class="form-group"><label>9-Ball Skill Level Needed</label>';
+  html += '<input type="text" id="fSkill9" placeholder="Any, 3, 3-5, etc." value="' + esc(existing ? existing.skill_9 : 'Any') + '"></div>';
+
+  html += '<div class="form-group"><label>Notes (optional)</label><textarea id="fTeamNotes">' + esc(existing ? existing.notes : '') + '</textarea></div>';
+
+  html += '<div class="form-actions">';
+  html += '<button class="spm-btn spm-btn-primary" onclick="saveTeamReq(' + (editId || 'null') + ')">Save</button>';
+  html += '<button class="spm-btn spm-btn-secondary" onclick="closeForm()">Cancel</button>';
+  html += '</div>';
+
+  document.getElementById('formContent').innerHTML = html;
+  document.getElementById('formOverlay').classList.add('active');
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
+function togglePill(label) {
+  var cb = label.querySelector('input');
+  setTimeout(function() { label.classList.toggle('checked', cb.checked); }, 0);
+}
+
+function getChecked(id) {
+  var checks = document.querySelectorAll('#' + id + ' input:checked');
+  return Array.prototype.map.call(checks, function(c) { return c.value; });
+}
+
+function closeForm() { document.getElementById('formOverlay').classList.remove('active'); }
+
+// ── Save / Delete ───────────────────────────────────────────────
+async function savePlayerReq(editId, addAnother) {
+  var fmt = document.getElementById('fFormat').value;
+  var day = document.getElementById('fDay').value;
+  if (!fmt) { showToast('Select a format.'); return; }
+
+  var data = {
+    member_number: memberNumber,
+    formats: [fmt],
+    preferred_days: day ? [day] : [],
+    available_areas: getChecked('fAvailAreas'),
+    preferred_areas: getChecked('fPrefAreas'),
+    notes: document.getElementById('fNotes').value.trim()
+  };
+
+  if (editId) {
+    await fetch(SUPABASE_URL + '/rest/v1/player_requests?id=eq.' + editId, { method: 'PATCH', headers: SBW, body: JSON.stringify(data) });
+  } else {
+    await fetch(SUPABASE_URL + '/rest/v1/player_requests', { method: 'POST', headers: SBW, body: JSON.stringify(data) });
+  }
+
+  if (addAnother) { loadRequests(); showPlayerForm(); }
+  else { closeForm(); loadRequests(); }
+}
+
+async function saveTeamReq(editId) {
+  var data = {
+    member_number: memberNumber,
+    registration_id: parseInt(document.getElementById('fTeam').value, 10),
+    skill_8: document.getElementById('fSkill8').value.trim() || 'Any',
+    skill_9: document.getElementById('fSkill9').value.trim() || 'Any',
+    notes: document.getElementById('fTeamNotes').value.trim()
+  };
+
+  if (editId) {
+    await fetch(SUPABASE_URL + '/rest/v1/team_requests?id=eq.' + editId, { method: 'PATCH', headers: SBW, body: JSON.stringify(data) });
+  } else {
+    await fetch(SUPABASE_URL + '/rest/v1/team_requests', { method: 'POST', headers: SBW, body: JSON.stringify(data) });
+  }
+  closeForm(); loadRequests();
+}
+
+async function deleteReq(table, id) {
+  if (!confirm('Delete this request?')) return;
+  await fetch(SUPABASE_URL + '/rest/v1/' + table + '?id=eq.' + id, { method: 'DELETE', headers: SB });
+  loadRequests();
+}
+</script>
+</body>
+</html>

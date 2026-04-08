@@ -425,7 +425,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.94</div>
+      <div class="app-pill">Session Registration &middot; v0.95</div>
     </div>
   </div>
 
@@ -458,8 +458,19 @@
       <button class="spm-btn spm-btn-primary" onclick="showFormatsScreen()">Register a Team</button>
     </div>
 
-    <!-- Player & Team Requests -->
-    <div id="requestsArea"></div>
+    <!-- Request Help CTA -->
+    <div id="requestCTA" style="margin-top:20px;text-align:center">
+      <div style="background:linear-gradient(135deg,rgba(234,0,42,0.04),rgba(0,49,161,0.06));border-radius:16px;padding:20px 16px;max-width:480px;margin:0 auto">
+        <div style="font-size:1.5rem;margin-bottom:4px">🤝</div>
+        <div style="font-weight:800;font-size:1rem;margin-bottom:6px">Need a Hand?</div>
+        <div style="font-size:0.85rem;color:var(--muted);line-height:1.5;margin-bottom:12px">
+          Whether you're a free agent looking for a team, or a captain wondering where all the good players are hiding — we've got you.
+        </div>
+        <button class="spm-btn spm-btn-primary" onclick="openRequestsPage()" style="font-size:0.9rem;padding:10px 24px">
+          Find Me a Team / Find Me Players
+        </button>
+      </div>
+    </div>
 
     <div style="text-align:center;margin-top:8px">
       <button class="spm-btn spm-btn-secondary" onclick="signOut()" style="font-size:0.85rem;padding:8px 16px">Sign Out</button>
@@ -542,7 +553,7 @@
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase `apps` table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.94';
+var APP_VERSION = '0.95';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -1013,8 +1024,7 @@ async function renderDashboard() {
 
     if (ids.length === 0) {
       document.getElementById('teamsArea').innerHTML = '<div class="empty-state">No teams registered yet</div>';
-      loadMyRequests();
-      return;
+        return;
     }
 
     // Load full registration details
@@ -1066,7 +1076,6 @@ async function renderDashboard() {
     html += '</div>';
 
     document.getElementById('teamsArea').innerHTML = html;
-    loadMyRequests();
   } catch (e) {
     document.getElementById('teamsArea').innerHTML = '<div class="empty-state">Error loading teams</div>';
   }
@@ -2206,6 +2215,11 @@ async function submitRegistration() {
   }
 }
 // ════════════════════════════════════════════════════════════════════
+function openRequestsPage() {
+  if (!currentPlayer) return;
+  window.open('requests.html?m=' + encodeURIComponent(currentPlayer.member_number), '_blank');
+}
+
 // Requests — "Looking for a Team" / "Looking for Players"
 // ════════════════════════════════════════════════════════════════════
 var myPlayerRequests = [];

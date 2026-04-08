@@ -260,7 +260,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Admin &middot; v1.01</div>
+      <div class="app-pill">Admin &middot; v1.02</div>
     </div>
   </div>
 
@@ -460,7 +460,7 @@ var SB_HEADERS_ANON = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' 
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase apps table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '1.01';
+var APP_VERSION = '1.02';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -1926,24 +1926,28 @@ function renderAdminPlayerReqTable(reqs) {
     return;
   }
 
-  // Need player names — fetch from player_names
+  // Need player names + skill levels — fetch from player_full
   var mns = reqs.map(function(r) { return r.member_number; });
-  fetch(SUPABASE_URL + '/rest/v1/player_names?member_number=in.(' + mns.join(',') + ')&select=member_number,first_name,last_name', { headers: sbHeaders(false) })
+  fetch(SUPABASE_URL + '/rest/v1/player_full?member_number=in.(' + mns.join(',') + ')&select=member_number,first_name,last_name,skill_level_8,skill_level_9', { headers: sbHeaders(false) })
     .then(function(r) { return r.ok ? r.json() : []; })
-    .then(function(names) {
-      var nameMap = {};
-      for (var i = 0; i < names.length; i++) nameMap[names[i].member_number] = names[i].first_name + ' ' + names[i].last_name;
+    .then(function(players) {
+      var playerMap = {};
+      for (var i = 0; i < players.length; i++) playerMap[players[i].member_number] = players[i];
 
       var html = '<table class="reg-table"><thead><tr>';
-      html += '<th>Player</th><th>Format(s)</th><th>Day(s)</th><th>Areas</th><th>Notes</th><th>Status</th><th>Actions</th>';
+      html += '<th>Player</th><th>SL</th><th>Format(s)</th><th>Day(s)</th><th>Areas</th><th>Notes</th><th>Status</th><th>Actions</th>';
       html += '</tr></thead><tbody>';
 
       for (var j = 0; j < reqs.length; j++) {
         var r = reqs[j];
-        var name = nameMap[r.member_number] || '#' + r.member_number;
+        var p = playerMap[r.member_number] || {};
+        var name = p.first_name ? p.first_name + ' ' + p.last_name : '#' + r.member_number;
         var rowClass = r.filled ? ' style="opacity:0.5"' : '';
         html += '<tr' + rowClass + '>';
         html += '<td><strong>' + esc(name) + '</strong><br><span style="font-size:0.7rem;color:var(--muted)">#' + esc(r.member_number) + '</span></td>';
+        var sl8 = p.skill_level_8 != null ? p.skill_level_8 : '-';
+        var sl9 = p.skill_level_9 != null ? p.skill_level_9 : '-';
+        html += '<td style="font-size:0.8rem;text-align:center;white-space:nowrap">' + esc(sl8) + ' / ' + esc(sl9) + '</td>';
         html += '<td style="font-size:0.8rem">' + esc((r.formats || []).join(', ')) + '</td>';
         var dayText = (r.preferred_days && r.preferred_days.length) ? r.preferred_days.join(', ') : 'TBD';
         html += '<td style="font-size:0.8rem">' + esc(dayText) + '</td>';

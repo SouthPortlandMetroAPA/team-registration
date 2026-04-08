@@ -260,7 +260,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Admin &middot; v1.02</div>
+      <div class="app-pill">Admin &middot; v1.03</div>
     </div>
   </div>
 
@@ -414,6 +414,9 @@
 
     <h4 style="margin:16px 0 8px;color:var(--spm-accent)">Teams Looking for Players</h4>
     <div style="overflow-x:auto"><div id="adminTeamReqs">Loading...</div></div>
+    <div style="text-align:center;margin-top:10px">
+      <button class="spm-btn spm-btn-primary" onclick="showAdminTeamReqForm()" style="font-size:0.8rem;padding:6px 16px">+ Add Team Request</button>
+    </div>
   </div>
 
   <!-- Admin Player Request Form Modal -->
@@ -460,7 +463,7 @@ var SB_HEADERS_ANON = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' 
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase apps table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '1.02';
+var APP_VERSION = '1.03';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -2211,6 +2214,153 @@ async function saveAdminPlayerReq() {
     if (!resp.ok) { setStatus('Error: ' + await resp.text(), 'error'); return; }
     closeAdminReqForm();
     setStatus('Request created for ' + adminSelectedPlayer.first_name + ' ' + adminSelectedPlayer.last_name, 'success');
+    loadAdminRequests();
+  } catch (e) {
+    setStatus('Error: ' + e.message, 'error');
+  }
+}
+
+// ================================================================
+// Admin — Create Team Request (with player search for requester)
+// ================================================================
+function showAdminTeamReqForm() {
+  adminSelectedPlayer = null;
+  var days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+  var html = '<h3>Add Team Request</h3>';
+
+  // Player search (who is requesting)
+  html += '<div class="admin-form-group"><label>Requesting Player</label>';
+  html += '<div class="admin-search-wrap">';
+  html += '<input type="text" id="adminPlayerSearch" placeholder="Search by name or APA #" autocomplete="off" oninput="adminPlayerAC()" onkeydown="adminPlayerACKey(event)">';
+  html += '<div class="admin-ac-dropdown" id="adminACDropdown"></div>';
+  html += '</div>';
+  html += '<div id="adminSelectedPlayerDisplay" style="margin-top:6px;font-size:0.85rem;color:var(--muted)"></div>';
+  html += '</div>';
+
+  // Team picker — loads after player is selected
+  html += '<div id="adminTeamPickerWrap" style="display:none"></div>';
+
+  // Manual fields (format/day/area) — shown when no registered team
+  html += '<div id="adminTeamManualFields">';
+  html += '<div class="admin-form-group"><label>Format</label><select id="adminTeamFormat"><option value="">-- Select --</option>';
+  for (var f = 0; f < formats.length; f++) html += '<option>' + esc(formats[f].name) + '</option>';
+  html += '</select></div>';
+  html += '<div class="admin-form-group"><label>Day</label><select id="adminTeamDay"><option value="">TBD</option>';
+  for (var d = 0; d < days.length; d++) html += '<option>' + esc(days[d]) + '</option>';
+  html += '</select></div>';
+  html += '<div class="admin-form-group"><label>Area</label><select id="adminTeamArea"><option value="">TBD</option>';
+  for (var a = 0; a < areas.length; a++) html += '<option>' + esc(areas[a].name) + '</option>';
+  html += '</select></div>';
+  html += '</div>';
+
+  // Skill levels
+  html += '<div class="admin-form-group"><label>8-Ball Skill Level Needed</label>';
+  html += '<input type="text" id="adminTeamSkill8" placeholder="Any, 3, 3-5, etc." value="Any"></div>';
+  html += '<div class="admin-form-group"><label>9-Ball Skill Level Needed</label>';
+  html += '<input type="text" id="adminTeamSkill9" placeholder="Any, 3, 3-5, etc." value="Any"></div>';
+
+  // Notes
+  html += '<div class="admin-form-group"><label>Notes (optional)</label><textarea id="adminTeamNotes"></textarea></div>';
+
+  html += '<div style="display:flex;gap:8px;margin-top:16px">';
+  html += '<button class="spm-btn spm-btn-primary" onclick="saveAdminTeamReq()">Save</button>';
+  html += '<button class="spm-btn spm-btn-secondary" onclick="closeAdminReqForm()">Cancel</button>';
+  html += '</div>';
+
+  document.getElementById('adminReqFormContent').innerHTML = html;
+  document.getElementById('adminReqFormOverlay').classList.add('active');
+  setTimeout(function() { document.getElementById('adminPlayerSearch').focus(); }, 50);
+
+  // Override selectAdminPlayer to also load their teams
+  var origSelect = selectAdminPlayer;
+  selectAdminPlayer = function(idx) {
+    origSelect(idx);
+    loadAdminTeamPicker();
+  };
+}
+
+async function loadAdminTeamPicker() {
+  if (!adminSelectedPlayer) return;
+  var mn = adminSelectedPlayer.member_number;
+
+  // Find all teams this player is on
+  var rResp = await fetch(SUPABASE_URL + '/rest/v1/registration_roster?member_number=eq.' + mn + '&select=registration_id', { headers: sbHeaders(false) });
+  var rosterRows = rResp.ok ? await rResp.json() : [];
+  var sResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?submitted_by=eq.' + mn + '&select=id', { headers: sbHeaders(false) });
+  var subRows = sResp.ok ? await sResp.json() : [];
+
+  var regIds = {};
+  for (var i = 0; i < rosterRows.length; i++) regIds[rosterRows[i].registration_id] = true;
+  for (var j = 0; j < subRows.length; j++) regIds[subRows[j].id] = true;
+  var ids = Object.keys(regIds);
+
+  var regs = [];
+  if (ids.length > 0) {
+    var tResp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?id=in.(' + ids.join(',') + ')&select=id,team_name,format', { headers: sbHeaders(false) });
+    if (tResp.ok) regs = await tResp.json();
+  }
+
+  var wrap = document.getElementById('adminTeamPickerWrap');
+  var manual = document.getElementById('adminTeamManualFields');
+
+  if (regs.length > 0) {
+    var html = '<div class="admin-form-group"><label>Team</label><select id="adminTeamSelect" onchange="toggleAdminTeamManual()">';
+    html += '<option value="">New / unregistered team</option>';
+    for (var k = 0; k < regs.length; k++) {
+      html += '<option value="' + regs[k].id + '">' + esc(regs[k].team_name) + ' (' + esc(regs[k].format) + ')</option>';
+    }
+    html += '</select></div>';
+    wrap.innerHTML = html;
+    wrap.style.display = '';
+    manual.style.display = '';  // show manual by default (New/unregistered selected)
+  } else {
+    wrap.style.display = 'none';
+    manual.style.display = '';
+  }
+}
+
+function toggleAdminTeamManual() {
+  var sel = document.getElementById('adminTeamSelect');
+  var manual = document.getElementById('adminTeamManualFields');
+  manual.style.display = sel && sel.value ? 'none' : '';
+}
+
+async function saveAdminTeamReq() {
+  if (!adminSelectedPlayer) { setStatus('Search and select a player first.', 'error'); return; }
+
+  var teamSel = document.getElementById('adminTeamSelect');
+  var regId = teamSel ? teamSel.value : '';
+
+  var data = {
+    member_number: adminSelectedPlayer.member_number,
+    skill_8: document.getElementById('adminTeamSkill8').value.trim() || 'Any',
+    skill_9: document.getElementById('adminTeamSkill9').value.trim() || 'Any',
+    notes: document.getElementById('adminTeamNotes').value.trim()
+  };
+
+  if (regId) {
+    data.registration_id = parseInt(regId, 10);
+    data.format = '';
+    data.day = '';
+    data.area = '';
+  } else {
+    var fmt = document.getElementById('adminTeamFormat').value;
+    if (!fmt) { setStatus('Select a format.', 'error'); return; }
+    data.registration_id = null;
+    data.format = fmt;
+    data.day = document.getElementById('adminTeamDay').value;
+    data.area = document.getElementById('adminTeamArea').value;
+  }
+
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/team_requests', {
+      method: 'POST', headers: Object.assign(sbHeaders(true), { 'Prefer': 'return=minimal' }),
+      body: JSON.stringify(data)
+    });
+    if (!resp.ok) { setStatus('Error: ' + await resp.text(), 'error'); return; }
+    closeAdminReqForm();
+    setStatus('Team request created for ' + adminSelectedPlayer.first_name + ' ' + adminSelectedPlayer.last_name, 'success');
     loadAdminRequests();
   } catch (e) {
     setStatus('Error: ' + e.message, 'error');

@@ -201,6 +201,37 @@
     }
 
     /* ── Progress Modal ───────────────────────────────────────────── */
+    /* ── Admin Req Form ────────────────────────────────────────────── */
+    .admin-form-group { margin-bottom: 14px; }
+    .admin-form-group label { display: block; font-weight: 600; font-size: 0.85rem; margin-bottom: 4px; }
+    .admin-form-group select, .admin-form-group input, .admin-form-group textarea {
+      width: 100%; border: 2px solid var(--border); border-radius: 10px;
+      padding: 8px 12px; font-size: 0.9rem; font-family: inherit;
+    }
+    .admin-form-group textarea { min-height: 60px; resize: vertical; }
+    .admin-form-group select:focus, .admin-form-group input:focus { border-color: var(--spm-accent); outline: none; }
+    .admin-search-wrap { position: relative; }
+    .admin-ac-dropdown {
+      position: absolute; left: 0; right: 0; top: 100%; z-index: 200;
+      background: #fff; border: 2px solid var(--spm-accent); border-radius: 10px;
+      max-height: 250px; overflow-y: auto; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+      display: none;
+    }
+    .admin-ac-dropdown.open { display: block; }
+    .admin-ac-item { padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #f0f0f0; }
+    .admin-ac-item:hover { background: #f0f4ff; }
+    .admin-ac-item:last-child { border-bottom: none; }
+    .admin-ac-name { font-weight: 600; font-size: 0.85rem; }
+    .admin-ac-num { font-size: 0.75rem; color: var(--muted); }
+    .admin-check-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .admin-check-pill {
+      display: inline-flex; align-items: center; gap: 4px; font-size: 0.8rem;
+      padding: 5px 12px; border: 1.5px solid var(--border); border-radius: 999px;
+      cursor: pointer; transition: all 0.1s; font-weight: 600;
+    }
+    .admin-check-pill input { display: none; }
+    .admin-check-pill.checked { background: var(--spm-accent); color: #fff; border-color: var(--spm-accent); }
+
     .progress-modal {
       position: fixed; inset: 0; background: rgba(0,0,0,0.55);
       display: none; align-items: center; justify-content: center; z-index: 9999;
@@ -229,7 +260,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Admin &middot; v0.98</div>
+      <div class="app-pill">Admin &middot; v0.99</div>
     </div>
   </div>
 
@@ -377,9 +408,21 @@
 
     <h4 style="margin:16px 0 8px;color:var(--spm-accent)">Players Looking for Teams</h4>
     <div style="overflow-x:auto"><div id="adminPlayerReqs">Loading...</div></div>
+    <div style="text-align:center;margin-top:10px">
+      <button class="spm-btn spm-btn-primary" onclick="showAdminPlayerReqForm()" style="font-size:0.8rem;padding:6px 16px">+ Add Player Request</button>
+    </div>
 
     <h4 style="margin:16px 0 8px;color:var(--spm-accent)">Teams Looking for Players</h4>
     <div style="overflow-x:auto"><div id="adminTeamReqs">Loading...</div></div>
+  </div>
+
+  <!-- Admin Player Request Form Modal -->
+  <div class="detail-overlay" id="adminReqFormOverlay" onclick="if(event.target===this)closeAdminReqForm()">
+    <div class="detail-box" style="max-width:480px">
+      <div class="detail-accent" style="background:linear-gradient(135deg,var(--spm-primary),var(--spm-accent))"></div>
+      <button class="detail-close" onclick="closeAdminReqForm()">&times;</button>
+      <div class="detail-body" id="adminReqFormContent"></div>
+    </div>
   </div>
 
   <div class="spm-footer">South Portland Metro APA &middot; Team Registration Admin</div>
@@ -417,7 +460,7 @@ var SB_HEADERS_ANON = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' 
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase apps table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.98';
+var APP_VERSION = '0.99';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -1970,6 +2013,180 @@ async function adminDeleteReq(table, id) {
     method: 'DELETE', headers: sbHeaders(true)
   });
   loadAdminRequests();
+}
+
+// ================================================================
+// Admin — Create Player Request (with player search)
+// ================================================================
+var adminAcTimer = null;
+var adminAcResults = [];
+var adminSelectedPlayer = null;
+
+function showAdminPlayerReqForm() {
+  adminSelectedPlayer = null;
+  var days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+  var html = '<h3>Add Player Request</h3>';
+
+  // Player search
+  html += '<div class="admin-form-group"><label>Player</label>';
+  html += '<div class="admin-search-wrap">';
+  html += '<input type="text" id="adminPlayerSearch" placeholder="Search by name or APA #" autocomplete="off" oninput="adminPlayerAC()" onkeydown="adminPlayerACKey(event)">';
+  html += '<div class="admin-ac-dropdown" id="adminACDropdown"></div>';
+  html += '</div>';
+  html += '<div id="adminSelectedPlayerDisplay" style="margin-top:6px;font-size:0.85rem;color:var(--muted)"></div>';
+  html += '</div>';
+
+  // Format
+  html += '<div class="admin-form-group"><label>Format</label><select id="adminReqFormat"><option value="">-- Select --</option>';
+  for (var f = 0; f < formats.length; f++) html += '<option>' + esc(formats[f].name) + '</option>';
+  html += '</select></div>';
+
+  // Day
+  html += '<div class="admin-form-group"><label>Preferred Day</label><select id="adminReqDay"><option value="">-- Any --</option>';
+  for (var d = 0; d < days.length; d++) html += '<option>' + esc(days[d]) + '</option>';
+  html += '</select></div>';
+
+  // Available Areas
+  html += '<div class="admin-form-group"><label>Available Areas</label><div class="admin-check-pills" id="adminAvailAreas">';
+  for (var a = 0; a < areas.length; a++) {
+    html += '<label class="admin-check-pill" onclick="toggleAdminPill(this)"><input type="checkbox" value="' + esc(areas[a].name) + '">' + esc(areas[a].name) + '</label>';
+  }
+  html += '</div></div>';
+
+  // Preferred Areas
+  html += '<div class="admin-form-group"><label>Preferred Areas</label><div class="admin-check-pills" id="adminPrefAreas">';
+  for (var p = 0; p < areas.length; p++) {
+    html += '<label class="admin-check-pill" onclick="toggleAdminPill(this)"><input type="checkbox" value="' + esc(areas[p].name) + '">' + esc(areas[p].name) + '</label>';
+  }
+  html += '</div></div>';
+
+  // Notes
+  html += '<div class="admin-form-group"><label>Notes (optional)</label><textarea id="adminReqNotes"></textarea></div>';
+
+  html += '<div style="display:flex;gap:8px;margin-top:16px">';
+  html += '<button class="spm-btn spm-btn-primary" onclick="saveAdminPlayerReq()">Save</button>';
+  html += '<button class="spm-btn spm-btn-secondary" onclick="closeAdminReqForm()">Cancel</button>';
+  html += '</div>';
+
+  document.getElementById('adminReqFormContent').innerHTML = html;
+  document.getElementById('adminReqFormOverlay').classList.add('active');
+  setTimeout(function() { document.getElementById('adminPlayerSearch').focus(); }, 50);
+}
+
+function closeAdminReqForm() {
+  document.getElementById('adminReqFormOverlay').classList.remove('active');
+}
+
+function toggleAdminPill(label) {
+  var cb = label.querySelector('input');
+  setTimeout(function() { label.classList.toggle('checked', cb.checked); }, 0);
+}
+
+function getAdminChecked(id) {
+  var checks = document.querySelectorAll('#' + id + ' input:checked');
+  var vals = [];
+  for (var i = 0; i < checks.length; i++) vals.push(checks[i].value);
+  return vals;
+}
+
+// Player autocomplete search
+function adminPlayerAC() {
+  clearTimeout(adminAcTimer);
+  var val = document.getElementById('adminPlayerSearch').value.trim();
+  if (!val || val.length < 2) { closeAdminAC(); return; }
+  adminAcTimer = setTimeout(function() { doAdminAC(val); }, 250);
+}
+
+function adminPlayerACKey(e) {
+  if (e.key === 'Escape') closeAdminAC();
+}
+
+async function doAdminAC(query) {
+  var isNum = /^\d+$/.test(query);
+  var filter;
+  if (isNum) {
+    filter = 'member_number=like.*' + encodeURIComponent(query) + '*';
+  } else {
+    var words = query.split(/\s+/).filter(function(w) { return w.length > 0; });
+    if (words.length === 1) {
+      var q = encodeURIComponent('%' + words[0] + '%');
+      filter = 'or=(first_name.ilike.' + q + ',nickname.ilike.' + q + ',last_name.ilike.' + q + ')';
+    } else {
+      var parts = words.map(function(w) {
+        var q = encodeURIComponent('%' + w + '%');
+        return 'or(first_name.ilike.' + q + ',nickname.ilike.' + q + ',last_name.ilike.' + q + ')';
+      });
+      filter = 'and=(' + parts.join(',') + ')';
+    }
+  }
+
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/player_full?' + filter + '&limit=8&select=member_number,first_name,nickname,last_name&order=last_name,first_name', { headers: sbHeaders(false) });
+    if (!resp.ok) return;
+    adminAcResults = await resp.json();
+    renderAdminAC();
+  } catch (e) {}
+}
+
+function renderAdminAC() {
+  var dd = document.getElementById('adminACDropdown');
+  if (adminAcResults.length === 0) { closeAdminAC(); return; }
+  var html = '';
+  for (var i = 0; i < adminAcResults.length; i++) {
+    var p = adminAcResults[i];
+    html += '<div class="admin-ac-item" onmousedown="selectAdminPlayer(' + i + ')">';
+    html += '<div class="admin-ac-name">' + esc(p.first_name);
+    if (p.nickname) html += ' "' + esc(p.nickname) + '"';
+    html += ' ' + esc(p.last_name) + '</div>';
+    html += '<div class="admin-ac-num">APA #' + esc(p.member_number) + '</div>';
+    html += '</div>';
+  }
+  dd.innerHTML = html;
+  dd.classList.add('open');
+}
+
+function selectAdminPlayer(idx) {
+  var p = adminAcResults[idx];
+  if (!p) return;
+  adminSelectedPlayer = p;
+  document.getElementById('adminPlayerSearch').value = p.first_name + (p.nickname ? ' "' + p.nickname + '"' : '') + ' ' + p.last_name;
+  document.getElementById('adminSelectedPlayerDisplay').innerHTML = '<strong>' + esc(p.first_name + ' ' + p.last_name) + '</strong> — APA #' + esc(p.member_number);
+  closeAdminAC();
+}
+
+function closeAdminAC() {
+  var dd = document.getElementById('adminACDropdown');
+  if (dd) { dd.classList.remove('open'); dd.innerHTML = ''; }
+  adminAcResults = [];
+}
+
+async function saveAdminPlayerReq() {
+  if (!adminSelectedPlayer) { setStatus('Search and select a player first.', 'error'); return; }
+  var fmt = document.getElementById('adminReqFormat').value;
+  if (!fmt) { setStatus('Select a format.', 'error'); return; }
+
+  var data = {
+    member_number: adminSelectedPlayer.member_number,
+    formats: [fmt],
+    preferred_days: document.getElementById('adminReqDay').value ? [document.getElementById('adminReqDay').value] : [],
+    available_areas: getAdminChecked('adminAvailAreas'),
+    preferred_areas: getAdminChecked('adminPrefAreas'),
+    notes: document.getElementById('adminReqNotes').value.trim()
+  };
+
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/player_requests', {
+      method: 'POST', headers: Object.assign(sbHeaders(true), { 'Prefer': 'return=minimal' }),
+      body: JSON.stringify(data)
+    });
+    if (!resp.ok) { setStatus('Error: ' + await resp.text(), 'error'); return; }
+    closeAdminReqForm();
+    setStatus('Request created for ' + adminSelectedPlayer.first_name + ' ' + adminSelectedPlayer.last_name, 'success');
+    loadAdminRequests();
+  } catch (e) {
+    setStatus('Error: ' + e.message, 'error');
+  }
 }
 
 // Init

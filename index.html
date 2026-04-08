@@ -425,7 +425,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration</div>
-      <div class="app-pill">Session Registration &middot; v0.92</div>
+      <div class="app-pill">Session Registration &middot; v0.93</div>
     </div>
   </div>
 
@@ -542,7 +542,7 @@
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase `apps` table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.92';
+var APP_VERSION = '0.93';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -2297,21 +2297,23 @@ function showPlayerReqForm(editId) {
 
   var html = '<h3>' + (existing ? 'Edit' : 'New') + ' — Looking for a Team</h3>';
 
-  // Formats
-  html += '<div class="req-form-group"><label>Format(s)</label><div class="req-form-checks" id="reqFormats">';
+  // Format (single select dropdown)
+  var selFmt = existing && existing.formats && existing.formats.length > 0 ? existing.formats[0] : '';
+  html += '<div class="req-form-group"><label>Format</label><select id="reqFormat">';
+  html += '<option value="">-- Select --</option>';
   for (var f = 0; f < formats.length; f++) {
-    var checked = existing && existing.formats && existing.formats.indexOf(formats[f]) !== -1;
-    html += '<label class="req-check' + (checked ? ' checked' : '') + '" onclick="toggleReqCheck(this)"><input type="checkbox" value="' + esc(formats[f]) + '"' + (checked ? ' checked' : '') + '>' + esc(formats[f]) + '</label>';
+    html += '<option value="' + esc(formats[f]) + '"' + (formats[f] === selFmt ? ' selected' : '') + '>' + esc(formats[f]) + '</option>';
   }
-  html += '</div></div>';
+  html += '</select></div>';
 
-  // Days
-  html += '<div class="req-form-group"><label>Preferred Day(s)</label><div class="req-form-checks" id="reqDays">';
+  // Preferred Day (single select dropdown)
+  var selDay = existing && existing.preferred_days && existing.preferred_days.length > 0 ? existing.preferred_days[0] : '';
+  html += '<div class="req-form-group"><label>Preferred Day</label><select id="reqDay">';
+  html += '<option value="">-- Any --</option>';
   for (var d = 0; d < days.length; d++) {
-    var dChecked = existing && existing.preferred_days && existing.preferred_days.indexOf(days[d]) !== -1;
-    html += '<label class="req-check' + (dChecked ? ' checked' : '') + '" onclick="toggleReqCheck(this)"><input type="checkbox" value="' + esc(days[d]) + '"' + (dChecked ? ' checked' : '') + '>' + esc(days[d].substring(0,3)) + '</label>';
+    html += '<option value="' + esc(days[d]) + '"' + (days[d] === selDay ? ' selected' : '') + '>' + esc(days[d]) + '</option>';
   }
-  html += '</div></div>';
+  html += '</select></div>';
 
   // Available Areas
   html += '<div class="req-form-group"><label>Available Areas</label><div class="req-form-checks" id="reqAvailAreas">';
@@ -2335,7 +2337,8 @@ function showPlayerReqForm(editId) {
 
   // Actions
   html += '<div class="req-form-actions">';
-  html += '<button class="spm-btn spm-btn-primary" onclick="savePlayerReq(' + (editId || 'null') + ')">Save</button>';
+  html += '<button class="spm-btn spm-btn-primary" onclick="savePlayerReq(' + (editId || 'null') + ',false)">Save</button>';
+  if (!editId) html += '<button class="spm-btn spm-btn-primary" style="background:var(--spm-accent)" onclick="savePlayerReq(null,true)">Save + Add Another</button>';
   html += '<button class="spm-btn spm-btn-secondary" onclick="closeReqForm()">Cancel</button>';
   html += '</div>';
 
@@ -2356,17 +2359,20 @@ function getCheckedValues(containerId) {
   return vals;
 }
 
-async function savePlayerReq(editId) {
+async function savePlayerReq(editId, addAnother) {
+  var fmt = document.getElementById('reqFormat').value;
+  var day = document.getElementById('reqDay').value;
+
   var data = {
     member_number: currentPlayer.member_number,
-    formats: getCheckedValues('reqFormats'),
-    preferred_days: getCheckedValues('reqDays'),
+    formats: fmt ? [fmt] : [],
+    preferred_days: day ? [day] : [],
     available_areas: getCheckedValues('reqAvailAreas'),
     preferred_areas: getCheckedValues('reqPrefAreas'),
     notes: document.getElementById('reqNotes').value.trim()
   };
 
-  if (data.formats.length === 0) { showToast('Select at least one format.', 'warn'); return; }
+  if (data.formats.length === 0) { showToast('Select a format.', 'warn'); return; }
 
   try {
     var headers = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
@@ -2375,8 +2381,14 @@ async function savePlayerReq(editId) {
     } else {
       await fetch(SUPABASE_URL + '/rest/v1/player_requests', { method: 'POST', headers: headers, body: JSON.stringify(data) });
     }
-    closeReqForm();
-    loadMyRequests();
+    if (addAnother) {
+      // Reload requests in background, then reopen a fresh form
+      loadMyRequests();
+      showPlayerReqForm();
+    } else {
+      closeReqForm();
+      loadMyRequests();
+    }
   } catch (e) { showToast('Error: ' + e.message, 'error'); }
 }
 

@@ -260,7 +260,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Admin &middot; v0.99</div>
+      <div class="app-pill">Admin &middot; v1.00</div>
     </div>
   </div>
 
@@ -460,7 +460,7 @@ var SB_HEADERS_ANON = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' 
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase apps table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '0.99';
+var APP_VERSION = '1.00';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -1769,6 +1769,11 @@ function showRegDetail(regId) {
   html += 'Submitted by #' + esc(reg.submitted_by) + ' &middot; ' + shortDate(reg.submitted_at);
   html += '</div>';
 
+  // Admin actions
+  html += '<div style="text-align:center;margin-top:16px">';
+  html += '<button class="spm-btn spm-btn-danger" style="background:#dc3545;color:#fff;border-color:#dc3545;font-size:0.85rem;padding:8px 20px" onclick="adminDeleteRegistration(' + reg.id + ',\'' + esc(reg.team_name).replace(/'/g, "\\'") + '\')">Delete Registration</button>';
+  html += '</div>';
+
   document.getElementById('detailContent').innerHTML = html;
   document.getElementById('detailOverlay').classList.add('active');
 }
@@ -1796,6 +1801,24 @@ function renderDetailRoster(title, ballImg, rosterEntries) {
 
 function closeDetail() {
   document.getElementById('detailOverlay').classList.remove('active');
+}
+
+async function adminDeleteRegistration(regId, teamName) {
+  if (!confirm('Delete "' + teamName + '"?\n\nThis will permanently remove the registration and all roster entries. This cannot be undone.')) return;
+  if (!confirm('Are you REALLY sure? Last chance.')) return;
+
+  try {
+    // Delete roster first (foreign key), then registration
+    await fetch(SUPABASE_URL + '/rest/v1/registration_roster?registration_id=eq.' + regId, { method: 'DELETE', headers: sbHeaders(true) });
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/team_registrations?id=eq.' + regId, { method: 'DELETE', headers: sbHeaders(true) });
+    if (!resp.ok) { setStatus('Delete failed: ' + resp.status, 'error'); return; }
+
+    closeDetail();
+    setStatus('"' + teamName + '" deleted.', 'success');
+    loadRegistrations();
+  } catch (e) {
+    setStatus('Error: ' + e.message, 'error');
+  }
 }
 
 // Format timestamp to short LA time: "4/3/26 7:03a"

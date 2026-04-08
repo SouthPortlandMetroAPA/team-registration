@@ -260,7 +260,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Admin &middot; v1.00</div>
+      <div class="app-pill">Admin &middot; v1.01</div>
     </div>
   </div>
 
@@ -460,7 +460,7 @@ var SB_HEADERS_ANON = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' 
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase apps table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '1.00';
+var APP_VERSION = '1.01';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -1945,7 +1945,8 @@ function renderAdminPlayerReqTable(reqs) {
         html += '<tr' + rowClass + '>';
         html += '<td><strong>' + esc(name) + '</strong><br><span style="font-size:0.7rem;color:var(--muted)">#' + esc(r.member_number) + '</span></td>';
         html += '<td style="font-size:0.8rem">' + esc((r.formats || []).join(', ')) + '</td>';
-        html += '<td style="font-size:0.8rem">' + esc((r.preferred_days || []).join(', ')) + '</td>';
+        var dayText = (r.preferred_days && r.preferred_days.length) ? r.preferred_days.join(', ') : 'TBD';
+        html += '<td style="font-size:0.8rem">' + esc(dayText) + '</td>';
         html += '<td style="font-size:0.75rem">';
         if (r.preferred_areas && r.preferred_areas.length) html += '<strong>Pref:</strong> ' + esc(r.preferred_areas.join(', ')) + '<br>';
         if (r.available_areas && r.available_areas.length) html += '<strong>Avail:</strong> ' + esc(r.available_areas.join(', '));
@@ -2066,7 +2067,7 @@ function showAdminPlayerReqForm() {
   html += '</select></div>';
 
   // Day
-  html += '<div class="admin-form-group"><label>Preferred Day</label><select id="adminReqDay"><option value="">-- Any --</option>';
+  html += '<div class="admin-form-group"><label>Preferred Day</label><select id="adminReqDay"><option value="">TBD</option>';
   for (var d = 0; d < days.length; d++) html += '<option>' + esc(days[d]) + '</option>';
   html += '</select></div>';
 

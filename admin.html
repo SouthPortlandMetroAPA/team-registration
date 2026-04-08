@@ -260,7 +260,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Admin &middot; v1.04</div>
+      <div class="app-pill">Admin &middot; v1.05</div>
     </div>
   </div>
 
@@ -463,7 +463,7 @@ var SB_HEADERS_ANON = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' 
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase apps table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '1.04';
+var APP_VERSION = '1.05';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -1961,6 +1961,7 @@ function renderAdminPlayerReqTable(reqs) {
         html += '<td style="font-size:0.8rem;max-width:150px">' + esc(r.notes || '') + '</td>';
         html += '<td>' + (r.filled ? '<span style="color:#28a745;font-weight:600">Filled</span>' : '<span style="color:var(--muted)">Open</span>') + '</td>';
         html += '<td style="white-space:nowrap">';
+        html += '<button class="spm-btn spm-btn-secondary" style="font-size:0.7rem;padding:3px 8px;margin-right:4px" onclick="editAdminPlayerReq(' + r.id + ')">Edit</button>';
         if (!r.filled) html += '<button class="spm-btn spm-btn-primary" style="font-size:0.7rem;padding:3px 8px;margin-right:4px" onclick="markReqFilled(\'player_requests\',' + r.id + ')">Fill</button>';
         else html += '<button class="spm-btn spm-btn-secondary" style="font-size:0.7rem;padding:3px 8px;margin-right:4px" onclick="markReqUnfilled(\'player_requests\',' + r.id + ')">Reopen</button>';
         html += '<button class="spm-btn spm-btn-danger" style="font-size:0.7rem;padding:3px 8px;background:#dc3545;color:#fff;border-color:#dc3545" onclick="adminDeleteReq(\'player_requests\',' + r.id + ')">Delete</button>';
@@ -2013,6 +2014,7 @@ function renderAdminTeamReqTable(reqs) {
       html += '<td style="font-size:0.8rem;max-width:150px">' + esc(r.notes || '') + '</td>';
       html += '<td>' + (r.filled ? '<span style="color:#28a745;font-weight:600">Filled</span>' : '<span style="color:var(--muted)">Open</span>') + '</td>';
       html += '<td style="white-space:nowrap">';
+      html += '<button class="spm-btn spm-btn-secondary" style="font-size:0.7rem;padding:3px 8px;margin-right:4px" onclick="editAdminTeamReq(' + r.id + ')">Edit</button>';
       if (!r.filled) html += '<button class="spm-btn spm-btn-primary" style="font-size:0.7rem;padding:3px 8px;margin-right:4px" onclick="markReqFilled(\'team_requests\',' + r.id + ')">Fill</button>';
       else html += '<button class="spm-btn spm-btn-secondary" style="font-size:0.7rem;padding:3px 8px;margin-right:4px" onclick="markReqUnfilled(\'team_requests\',' + r.id + ')">Reopen</button>';
       html += '<button class="spm-btn spm-btn-danger" style="font-size:0.7rem;padding:3px 8px;background:#dc3545;color:#fff;border-color:#dc3545" onclick="adminDeleteReq(\'team_requests\',' + r.id + ')">Delete</button>';
@@ -2244,6 +2246,143 @@ async function saveAdminPlayerReq() {
   } catch (e) {
     setStatus('Error: ' + e.message, 'error');
   }
+}
+
+// ── Edit Player Request ─────────────────────────────────────────
+function editAdminPlayerReq(reqId) {
+  var req = allPlayerRequests.find(function(r) { return r.id === reqId; });
+  if (!req) return;
+  var days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  var selFmt = (req.formats && req.formats.length) ? req.formats[0] : '';
+  var selDay = (req.preferred_days && req.preferred_days.length) ? req.preferred_days[0] : '';
+
+  var html = '<h3>Edit Player Request</h3>';
+  html += '<div style="font-size:0.85rem;color:var(--muted);margin-bottom:12px">Player: <strong>#' + esc(req.member_number) + '</strong></div>';
+
+  html += '<div class="admin-form-group"><label>Format</label><select id="adminReqFormat"><option value="">-- Select --</option>';
+  for (var f = 0; f < formats.length; f++) {
+    html += '<option' + (formats[f].name === selFmt ? ' selected' : '') + '>' + esc(formats[f].name) + '</option>';
+  }
+  html += '</select></div>';
+
+  html += '<div class="admin-form-group"><label>Preferred Day</label><select id="adminReqDay"><option value="">TBD</option>';
+  for (var d = 0; d < days.length; d++) {
+    html += '<option' + (days[d] === selDay ? ' selected' : '') + '>' + esc(days[d]) + '</option>';
+  }
+  html += '</select></div>';
+
+  html += '<div class="admin-form-group"><label>Available Areas</label><div class="admin-check-pills" id="adminAvailAreas">';
+  for (var a = 0; a < areas.length; a++) {
+    var ac = req.available_areas && req.available_areas.indexOf(areas[a].name) !== -1;
+    html += '<label class="admin-check-pill' + (ac ? ' checked' : '') + '" onclick="toggleAdminPill(this)"><input type="checkbox" value="' + esc(areas[a].name) + '"' + (ac ? ' checked' : '') + '>' + esc(areas[a].name) + '</label>';
+  }
+  html += '</div></div>';
+
+  html += '<div class="admin-form-group"><label>Preferred Areas</label><div class="admin-check-pills" id="adminPrefAreas">';
+  for (var p = 0; p < areas.length; p++) {
+    var pc = req.preferred_areas && req.preferred_areas.indexOf(areas[p].name) !== -1;
+    html += '<label class="admin-check-pill' + (pc ? ' checked' : '') + '" onclick="toggleAdminPill(this)"><input type="checkbox" value="' + esc(areas[p].name) + '"' + (pc ? ' checked' : '') + '>' + esc(areas[p].name) + '</label>';
+  }
+  html += '</div></div>';
+
+  html += '<div class="admin-form-group"><label>Notes (optional)</label><textarea id="adminReqNotes">' + esc(req.notes || '') + '</textarea></div>';
+
+  html += '<div style="display:flex;gap:8px;margin-top:16px">';
+  html += '<button class="spm-btn spm-btn-primary" onclick="updateAdminPlayerReq(' + reqId + ')">Save</button>';
+  html += '<button class="spm-btn spm-btn-secondary" onclick="closeAdminReqForm()">Cancel</button>';
+  html += '</div>';
+
+  document.getElementById('adminReqFormContent').innerHTML = html;
+  document.getElementById('adminReqFormOverlay').classList.add('active');
+}
+
+async function updateAdminPlayerReq(reqId) {
+  var fmt = document.getElementById('adminReqFormat').value;
+  var day = document.getElementById('adminReqDay').value;
+  var data = {
+    formats: fmt ? [fmt] : [],
+    preferred_days: day ? [day] : [],
+    available_areas: getAdminChecked('adminAvailAreas'),
+    preferred_areas: getAdminChecked('adminPrefAreas'),
+    notes: document.getElementById('adminReqNotes').value.trim()
+  };
+  try {
+    await fetch(SUPABASE_URL + '/rest/v1/player_requests?id=eq.' + reqId, {
+      method: 'PATCH', headers: Object.assign(sbHeaders(true), { 'Prefer': 'return=minimal' }),
+      body: JSON.stringify(data)
+    });
+    closeAdminReqForm();
+    setStatus('Player request updated.', 'success');
+    loadAdminRequests();
+  } catch (e) { setStatus('Error: ' + e.message, 'error'); }
+}
+
+// ── Edit Team Request ───────────────────────────────────────────
+function editAdminTeamReq(reqId) {
+  var req = allTeamRequests.find(function(r) { return r.id === reqId; });
+  if (!req) return;
+  var days = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+  var html = '<h3>Edit Team Request</h3>';
+  html += '<div style="font-size:0.85rem;color:var(--muted);margin-bottom:12px">Player: <strong>#' + esc(req.member_number) + '</strong></div>';
+
+  // Format
+  html += '<div class="admin-form-group"><label>Format</label><select id="adminTeamFormat"><option value="">-- Select --</option>';
+  for (var f = 0; f < formats.length; f++) {
+    html += '<option' + (formats[f].name === req.format ? ' selected' : '') + '>' + esc(formats[f].name) + '</option>';
+  }
+  html += '</select></div>';
+
+  // Day
+  html += '<div class="admin-form-group"><label>Day</label><select id="adminTeamDay"><option value="">TBD</option>';
+  for (var d = 0; d < days.length; d++) {
+    html += '<option' + (days[d] === req.day ? ' selected' : '') + '>' + esc(days[d]) + '</option>';
+  }
+  html += '</select></div>';
+
+  // Area
+  html += '<div class="admin-form-group"><label>Area</label><select id="adminTeamArea"><option value="">TBD</option>';
+  for (var a = 0; a < areas.length; a++) {
+    html += '<option' + (areas[a].name === req.area ? ' selected' : '') + '>' + esc(areas[a].name) + '</option>';
+  }
+  html += '</select></div>';
+
+  // Skill levels
+  html += '<div class="admin-form-group"><label>8-Ball Skill Level Needed</label>';
+  html += '<input type="text" id="adminTeamSkill8" value="' + esc(req.skill_8 || 'Any') + '"></div>';
+  html += '<div class="admin-form-group"><label>9-Ball Skill Level Needed</label>';
+  html += '<input type="text" id="adminTeamSkill9" value="' + esc(req.skill_9 || 'Any') + '"></div>';
+
+  // Notes
+  html += '<div class="admin-form-group"><label>Notes (optional)</label><textarea id="adminTeamNotes">' + esc(req.notes || '') + '</textarea></div>';
+
+  html += '<div style="display:flex;gap:8px;margin-top:16px">';
+  html += '<button class="spm-btn spm-btn-primary" onclick="updateAdminTeamReq(' + reqId + ')">Save</button>';
+  html += '<button class="spm-btn spm-btn-secondary" onclick="closeAdminReqForm()">Cancel</button>';
+  html += '</div>';
+
+  document.getElementById('adminReqFormContent').innerHTML = html;
+  document.getElementById('adminReqFormOverlay').classList.add('active');
+}
+
+async function updateAdminTeamReq(reqId) {
+  var data = {
+    format: document.getElementById('adminTeamFormat').value,
+    day: document.getElementById('adminTeamDay').value,
+    area: document.getElementById('adminTeamArea').value,
+    skill_8: document.getElementById('adminTeamSkill8').value.trim() || 'Any',
+    skill_9: document.getElementById('adminTeamSkill9').value.trim() || 'Any',
+    notes: document.getElementById('adminTeamNotes').value.trim()
+  };
+  try {
+    await fetch(SUPABASE_URL + '/rest/v1/team_requests?id=eq.' + reqId, {
+      method: 'PATCH', headers: Object.assign(sbHeaders(true), { 'Prefer': 'return=minimal' }),
+      body: JSON.stringify(data)
+    });
+    closeAdminReqForm();
+    setStatus('Team request updated.', 'success');
+    loadAdminRequests();
+  } catch (e) { setStatus('Error: ' + e.message, 'error'); }
 }
 
 // ================================================================

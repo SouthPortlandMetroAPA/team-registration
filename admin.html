@@ -260,7 +260,7 @@
     <h1 class="title">South Portland Metro APA</h1>
     <div class="subtitle-group">
       <div class="subtitle">Team Registration Admin</div>
-      <div class="app-pill">Admin &middot; v1.03</div>
+      <div class="app-pill">Admin &middot; v1.04</div>
     </div>
   </div>
 
@@ -463,7 +463,7 @@ var SB_HEADERS_ANON = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' 
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase apps table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '1.03';
+var APP_VERSION = '1.04';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -2059,13 +2059,16 @@ function showAdminPlayerReqForm() {
 
   var html = '<h3>Add Player Request</h3>';
 
-  // Player search
+  // Player search (with manual APA# fallback)
   html += '<div class="admin-form-group"><label>Player</label>';
   html += '<div class="admin-search-wrap">';
   html += '<input type="text" id="adminPlayerSearch" placeholder="Search by name or APA #" autocomplete="off" oninput="adminPlayerAC()" onkeydown="adminPlayerACKey(event)">';
   html += '<div class="admin-ac-dropdown" id="adminACDropdown"></div>';
   html += '</div>';
   html += '<div id="adminSelectedPlayerDisplay" style="margin-top:6px;font-size:0.85rem;color:var(--muted)"></div>';
+  html += '<div id="adminManualApaWrap" style="display:none;margin-top:6px">';
+  html += '<button class="spm-btn spm-btn-secondary" style="font-size:0.75rem;padding:4px 12px" onclick="useManualApa()">Use this APA # anyway (not in DB yet)</button>';
+  html += '</div>';
   html += '</div>';
 
   // Format
@@ -2162,7 +2165,19 @@ async function doAdminAC(query) {
 
 function renderAdminAC() {
   var dd = document.getElementById('adminACDropdown');
-  if (adminAcResults.length === 0) { closeAdminAC(); return; }
+  var manualWrap = document.getElementById('adminManualApaWrap');
+  var input = document.getElementById('adminPlayerSearch');
+  var val = input ? input.value.trim() : '';
+  var isNum = /^\d+$/.test(val);
+
+  if (adminAcResults.length === 0) {
+    closeAdminAC();
+    // Show "use anyway" button if input is a number with no search results
+    if (manualWrap) manualWrap.style.display = (isNum && val.length >= 3) ? '' : 'none';
+    return;
+  }
+  if (manualWrap) manualWrap.style.display = 'none';
+
   var html = '';
   for (var i = 0; i < adminAcResults.length; i++) {
     var p = adminAcResults[i];
@@ -2175,6 +2190,17 @@ function renderAdminAC() {
   }
   dd.innerHTML = html;
   dd.classList.add('open');
+}
+
+function useManualApa() {
+  var input = document.getElementById('adminPlayerSearch');
+  var val = input ? input.value.trim().replace(/\D/g, '') : '';
+  if (!val) return;
+  adminSelectedPlayer = { member_number: val, first_name: 'APA #' + val, last_name: '(not in DB)', nickname: '' };
+  document.getElementById('adminSelectedPlayerDisplay').innerHTML = '<strong>APA #' + esc(val) + '</strong> <span style="color:#e65100">(not in DB yet — will need player data import)</span>';
+  var manualWrap = document.getElementById('adminManualApaWrap');
+  if (manualWrap) manualWrap.style.display = 'none';
+  closeAdminAC();
 }
 
 function selectAdminPlayer(idx) {

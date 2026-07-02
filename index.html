@@ -553,7 +553,7 @@
 // ════════════════════════════════════════════════════════════════════
 // Version Check — polls Supabase `apps` table every 30s, reloads if newer
 // ════════════════════════════════════════════════════════════════════
-var APP_VERSION = '1.07';
+var APP_VERSION = '1.08';
 var _versionMismatch = false;
 
 function checkVersion() {
@@ -564,6 +564,10 @@ function checkVersion() {
       if (!data || data.length === 0) return;
       var remote = data[0].version;
       if (remote !== APP_VERSION) {
+        /* 2026-07-02 hardening: remote OLDER than running = deploy window
+           or DB rollback — do not strand the tab in the overlay. */
+        var __r = parseFloat(remote), __l = parseFloat(APP_VERSION);
+        if (isFinite(__r) && isFinite(__l) && __r < __l) return;
         _versionMismatch = true;
         document.getElementById('updateOverlay').classList.add('active');
         // Poll until GitHub Pages CDN has the new HTML, then hard reload
@@ -573,18 +577,34 @@ function checkVersion() {
     .catch(function() { /* offline or Supabase down — skip */ });
 }
 
-function pollForDeploy(targetVersion) {
+function pollForDeploy(targetVersion, attempt) {
+  attempt = attempt || 0;
+  /* 2026-07-02 hardening: give-up cap — if Pages serves nothing new after
+     ~2 min the deploy is wedged; dismiss the overlay and let the 30s
+     checkVersion cycle retry in the background. */
+  if (attempt >= 40) {
+    console.warn('[updater] deploy not served after ~2min — dismissing overlay, retrying in background');
+    var __ov = document.getElementById('updateOverlay');
+    if (__ov) __ov.classList.remove('active');
+    _versionMismatch = false;
+    return;
+  }
   setTimeout(function() {
     fetch('index.html?_=' + Date.now())
       .then(function(r) { return r.ok ? r.text() : null; })
       .then(function(html) {
-        if (html && html.indexOf("APP_VERSION = '" + targetVersion + "'") !== -1) {
+        var __m = html && html.match(/APP_VERSION\s*=\s*'([0-9.]+)'/);
+        var __served = __m && __m[1];
+        /* 2026-07-02 hardening: reload on ANY served version different from
+           the running one — pinning the target strands the tab when a second
+           bump lands mid-poll. */
+        if (__served && __served !== APP_VERSION) {
           location.reload(true);
         } else {
-          pollForDeploy(targetVersion);
+          pollForDeploy(targetVersion, attempt + 1);
         }
       })
-      .catch(function() { pollForDeploy(targetVersion); });
+      .catch(function() { pollForDeploy(targetVersion, attempt + 1); });
   }, 3000);
 }
 

@@ -573,7 +573,7 @@ var _versionMismatch = false;
 
 function checkVersion() {
   if (_versionMismatch) return; // already showing update dialog
-  fetch(SUPABASE_URL + '/rest/v1/apps?app_name=eq.TeamRegistration&select=version', { headers: SB_HEADERS })
+  fetch(SUPABASE_URL + '/rest/v1/apps?app_name=eq.TeamRegistration&select=version', { headers: SB_HEADERS_CORE })
     .then(function(r) { return r.ok ? r.json() : null; })
     .then(function(data) {
       if (!data || data.length === 0) return;
@@ -628,7 +628,13 @@ function pollForDeploy(targetVersion, attempt) {
 // ════════════════════════════════════════════════════════════════════
 var SUPABASE_URL = 'https://dqzbekoaysgaiqljueac.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxemJla29heXNnYWlxbGp1ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNzA5NzgsImV4cCI6MjA5MDc0Njk3OH0.cCdGxZ4zEFzU_r6lWSDeoNWG67Q4MSYCAtpds035dfU';
-var SB_HEADERS = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY };
+/* Accept-Profile is REQUIRED: without it PostgREST resolves against `public`, which is not on the exposed
+   schema list, and every request 404s. This app was dead in production until 2026-09-21 for exactly that. */
+var SB_HEADERS = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                   'Accept-Profile': 'teamreg', 'Content-Profile': 'teamreg' };
+/* the version row lives in apa_core, so it needs its own profile rather than the app's */
+var SB_HEADERS_CORE = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                        'Accept-Profile': 'apa_core' };
 
 // Kick off version check now and every 30s
 checkVersion();

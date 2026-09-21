@@ -418,6 +418,16 @@
 
     .hidden { display: none !important; }
   </style>
+<script src="https://southportlandmetroapa.github.io/shared/spm-auth.js"></script>
+<style>
+  .sso-wrap{ max-width:420px; margin:0 auto; text-align:left; }
+  .sso-wrap p{ font-size:.93rem; color:#555; line-height:1.5; margin:0 0 12px; }
+  .sso-in{ width:100%; font:inherit; padding:12px 14px; border:2px solid #d7dbe0; border-radius:10px;
+           min-height:46px; box-sizing:border-box; margin-bottom:10px; }
+  .sso-m{ font-size:.9rem; margin:10px 0 0; min-height:1.1em; } .sso-m.bad{ color:#b8001f; } .sso-m.good{ color:#0a7d33; }
+  .sso-hdr{ font-size:.88rem; color:#555; text-align:center; margin:0 0 10px; }
+  .sso-hdr button{ background:none; border:none; color:#0031a1; font:inherit; font-weight:700; cursor:pointer; }
+</style>
 </head>
 <body>
 <div class="spm-page">
@@ -431,10 +441,15 @@
 
   <!-- ═══ Screen: Auth ═══ -->
   <div id="screenAuth">
-    <form class="lookup-bar" autocomplete="off" onsubmit="event.preventDefault();doLookup()">
-      <input class="lookup-input" id="authInput" type="text" placeholder="APA # or email" aria-label="APA number or email" inputmode="text">
-      <button class="lookup-btn" type="submit">FIND ME</button>
-    </form>
+    <div class="sso-wrap">
+      <p>Sign in with the email or APA number on your record and we send you a link. No password.
+         Registering a team is done as you, and only you can change it afterwards, so we need to know it is you.
+         Signed in to another South Portland Metro app on this device? You are already signed in here.</p>
+      <input class="sso-in" type="text" id="ssoIdent" placeholder="Your email or APA number" autocomplete="email">
+      <button class="lookup-btn" type="button" id="ssoSend" style="width:100%">EMAIL ME A SIGN-IN LINK</button>
+      <p class="sso-m" id="ssoMsg"></p>
+    </div>
+    <input type="hidden" id="authInput">
     <div class="auth-error" id="authError"></div>
     <div style="text-align:center;margin-top:16px">
       <button class="spm-btn spm-btn-secondary" onclick="showDivisionsBrowser()" style="font-size:0.85rem;padding:8px 20px">Browse Divisions</button>
@@ -558,7 +573,7 @@ var _versionMismatch = false;
 
 function checkVersion() {
   if (_versionMismatch) return; // already showing update dialog
-  fetch(SUPABASE_URL + '/rest/v1/apps?app_name=eq.TeamRegistration&select=version', { headers: SB_HEADERS })
+  fetch(SUPABASE_URL + '/rest/v1/apps?app_name=eq.TeamRegistration&select=version', { headers: SB_HEADERS_CORE })
     .then(function(r) { return r.ok ? r.json() : null; })
     .then(function(data) {
       if (!data || data.length === 0) return;
@@ -613,7 +628,13 @@ function pollForDeploy(targetVersion, attempt) {
 // ════════════════════════════════════════════════════════════════════
 var SUPABASE_URL = 'https://dqzbekoaysgaiqljueac.supabase.co';
 var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRxemJla29heXNnYWlxbGp1ZWFjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNzA5NzgsImV4cCI6MjA5MDc0Njk3OH0.cCdGxZ4zEFzU_r6lWSDeoNWG67Q4MSYCAtpds035dfU';
-var SB_HEADERS = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY };
+/* Accept-Profile is REQUIRED: without it PostgREST resolves against `public`, which is not on the exposed
+   schema list, and every request 404s. This app was dead in production until 2026-09-21 for exactly that. */
+var SB_HEADERS = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                   'Accept-Profile': 'teamreg', 'Content-Profile': 'teamreg' };
+/* the version row lives in apa_core, so it needs its own profile rather than the app's */
+var SB_HEADERS_CORE = { 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+                        'Accept-Profile': 'apa_core' };
 
 // Kick off version check now and every 30s
 checkVersion();
@@ -984,9 +1005,11 @@ function renderBrowseContent() {
   document.getElementById('browseContent').innerHTML = html;
 }
 
+/* Session-driven. The member number comes from the signed-in session, never from a text box: typing someone
+   else's number used to hand you Edit and Delete on their registration via the submitted_by check. */
 async function doLookup() {
   var raw = document.getElementById('authInput').value.trim();
-  if (!raw) { document.getElementById('authError').textContent = 'Please enter your APA number or email.'; return; }
+  if (!raw) { document.getElementById('authError').textContent = 'Sign in first.'; return; }
   document.getElementById('authError').textContent = '';
   showLoading();
 
@@ -2505,6 +2528,41 @@ async function deleteTeamReq(id) {
 function closeReqForm() {
   document.getElementById('reqFormOverlay').classList.remove('active');
 }
+
+/* ── Shared sign-in (spm-auth.js). HARD gate on the SUBMITTER. The roster builder's "Add player by name or
+   APA #" is a lookup of OTHER people and is untouched: teammates who have never opened this app still have to
+   be addable. ── */
+function ssoMsg(t, good) {
+  var m = document.getElementById('ssoMsg');
+  if (!m) return;
+  m.textContent = t || ''; m.className = 'sso-m' + (t ? (good ? ' good' : ' bad') : '');
+}
+function ssoSignedIn(r) {
+  var hdr = document.getElementById('authError');
+  if (hdr) hdr.textContent = '';
+  var box = document.getElementById('authInput');
+  if (box) box.value = r.member_number || '';   /* doLookup reads this; nobody types it now */
+  doLookup();
+}
+(function ssoInit() {
+  if (typeof spmAuth === 'undefined') return;
+  var send = document.getElementById('ssoSend');
+  if (send) send.onclick = function () {
+    var v = document.getElementById('ssoIdent').value.trim();
+    if (!v) return ssoMsg('Enter your email or APA number.');
+    send.disabled = true; ssoMsg('');
+    spmAuth.requestLink(v, 'teamreg').then(function (r) {
+      send.disabled = false;
+      if (!r.ok) return ssoMsg(r.error || 'We could not find that.');
+      ssoMsg('Check your email for the link. It works for 30 minutes.', true);
+    });
+  };
+  spmAuth.boot({ app: 'teamreg' }).then(function (r) {
+    if (r.signedIn) return ssoSignedIn(r);
+    if (r.error) ssoMsg(r.error);
+  });
+  spmAuth.onChange(function () { location.reload(); });
+})();
 </script>
 </body>
 </html>

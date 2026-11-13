@@ -157,7 +157,12 @@ html,body{margin:0;padding:0;width:100%;background:var(--bg);color:var(--text);
 .layout{display:grid;gap:0}
 @media(min-width:1024px){
   .layout{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:0 var(--gap);align-items:start}
-  .col-b{grid-row:1 / span 2}
+  /* Do NOT add grid-row/grid-column here. An earlier `.col-b{grid-row:1/span 2}`
+     took col-b out of auto-placement and the browser put it in column ONE,
+     swapping the two halves of the page. Two children, two tracks, source
+     order: leave it alone. Caught by measuring, never by reading the CSS. */
+  .col-a{grid-column:1}
+  .col-b{grid-column:2}
 }
 
 h2.sec{margin:0 0 3px;font-size:1.02rem;font-weight:800;letter-spacing:-.01em}

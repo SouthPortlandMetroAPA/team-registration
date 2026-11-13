@@ -14,17 +14,32 @@ PURPOSE
   A captain registers a team. The completed form is EMAILED to the league.
   Nothing else happens: no login, no database write, no member lookup.
 
-TWO DELIBERATE OMISSIONS. DO NOT "RESTORE" EITHER ONE.
-  1. ONLY THE CAPTAIN AND CO-CAPTAIN. The paper form has eight roster lines.
-     Captains add and drop players freely through the first four weeks, so
-     collecting six more names at registration buys nothing and costs a
-     seven-screen form that people abandon. Operator decision 2026-11-13.
-  2. NO PHYSICAL ADDRESSES ANYWHERE, AND NO VENUE PHONE. Not the captain's,
-     not the co-captain's, not the host venue's. Operator decision 2026-11-13.
-     The league knows its own venues, and a home address is the single most
-     damaging field to collect from a third party. The host location is a NAME
-     and nothing else. There is no address input on this page and the handler
-     reads none.
+THREE LAYOUTS, ONE FILE
+  Phone, tablet and desktop each get a layout designed for them, not one layout
+  stretched. They are breakpoints in this file rather than three separate pages
+  on purpose: three files drift, and the house rule is that a shared surface
+  must look and behave identically everywhere.
+    under 600px   one column, tight spacing, hints trimmed, STICKY submit bar
+    600 - 1023    paired fields two-up, people two-up, submit inline
+    1024 and up   two-column page: division and team on the left, people on the
+                  right, people two-up inside it
+  The spacing scale itself moves with the breakpoint (--pad / --gap / --radius),
+  so "compact" is one token change, not thirty.
+
+WHAT THE FORM COLLECTS, AND WHAT IT DELIBERATELY DOES NOT
+  The format decides how many people are asked for. Operator decisions
+  2026-11-13, all deliberate:
+    - Big formats (Open, Double Jeopardy, Ladies): CAPTAIN AND CO-CAPTAIN ONLY.
+      Captains add and drop players freely through the first four weeks, so a
+      full roster at registration buys nothing and costs a form people abandon.
+    - Small formats (Doubles, Masters): the WHOLE TEAM, because the whole team
+      is two to four people.
+    - Double Jeopardy may name SEPARATE captains for its 8-Ball and 9-Ball
+      sides. Some teams run it that way.
+    - NO PHYSICAL ADDRESSES ANYWHERE, AND NO VENUE PHONE. Not the captain's,
+      not a teammate's, not the host venue's. The host location is a NAME. A
+      home address is the single most damaging field to take from a third
+      party, and the handler reads no address key even if one is posted.
 
 WHY IT IS DELIBERATELY DUMB
   The older app in this same repo (index.html) authenticated captains and built
@@ -43,8 +58,8 @@ DATA FLOW   (never write an arrow as two dashes plus a closing angle bracket:
              that sequence ENDS an HTML comment and dumps this whole block onto
              the page as visible text. It did, once, on 2026-11-13.)
   browser  -POST text/plain->  GAS treg_submit  ->  safeMailSend
-      -> league inbox : the full form, reply-to the captain
-      -> captain      : a receipt
+      -> league inbox : the full form, reply-to the first contact
+      -> that contact : a receipt
 
 PRECONDITIONS THAT WILL BITE YOU
   1. Browser -> GAS must be Content-Type text/plain. application/json triggers a
@@ -60,11 +75,15 @@ PRECONDITIONS THAT WILL BITE YOU
   4. Focus uses OUTLINE. The error state uses BORDER. Keep them on separate
      properties: when both were border-colour, keyboard focus vanished on an
      invalid field, which is the exact moment it is needed.
-  5. SESSION_NAME / DEADLINE / SESSION_STARTS below are plain constants. Edit
-     them each session. They are not read from a database on purpose: this page
-     must keep working even if every backend is down.
-  6. No version.js polling here. A static form has no stale view to refresh, and
-     an auto-reload mid-typing would destroy half-filled work.
+  5. People blocks are RE-RENDERED when the format changes. Typed values are
+     carried across by SLOT KEY, not by position, so switching 8-Ball Open to
+     Masters keeps the captain where they are.
+  6. FORMATS below mirrors teamreg.formats. It is a constant, not a fetch: this
+     page must keep working even if every backend is down. If the league adds a
+     format, edit it here.
+  7. SESSION_NAME / DEADLINE / SESSION_STARTS are plain constants too.
+  8. No version.js polling. A static form has no stale view to refresh, and an
+     auto-reload mid-typing would destroy half-filled work.
 
 BRANDING
   Light theme, APA red #ea002a + blue #0031a1, matching MultiPass / PatchCheck /
@@ -87,31 +106,38 @@ BRANDING
   --ok-bg:#e8f0fe;
   --ok-border:#afc6f0;
   --ok-text:#1a3b6b;
-  /* Local, deliberate: see BRANDING above. 3.59:1 on white. */
-  --field-border:#878787;
-  /* Error TEXT needs 4.5:1; the brand red is 4.63:1, too thin a margin to
-     rest an error message on. This is 6.04:1. The brand red stays on the
-     border, which only needs 3:1. */
-  --err-text:#c8001f;
+  --field-border:#878787;   /* 3.59:1 on white. See BRANDING. */
+  --err-text:#c8001f;       /* 6.04:1 on white; brand red is only 4.63:1. */
+
+  /* The compactness scale. Everything spacial reads from these, so a layout
+     gets tighter by changing four numbers rather than thirty rules. */
+  --pad:14px;
+  --gap:10px;
+  --radius:16px;
+  --fgap:10px;
 }
+@media(min-width:600px){ :root{ --pad:18px; --gap:14px; --radius:20px; --fgap:13px } }
+@media(min-width:1024px){ :root{ --pad:22px; --gap:16px; --radius:22px; --fgap:14px } }
+
 *,*::before,*::after{box-sizing:border-box}
 html,body{margin:0;padding:0;width:100%;background:var(--bg);color:var(--text);
   font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%}
+  font-size:16px;line-height:1.45;-webkit-text-size-adjust:100%}
 
-.spm-page{width:100%;max-width:900px;margin:0 auto;padding:12px}
-@media(min-width:768px){.spm-page{padding:16px 20px}}
-@media(min-width:1200px){.spm-page{padding:20px 30px}}
+.spm-page{width:100%;max-width:560px;margin:0 auto;padding:10px 12px 0}
+@media(min-width:600px){.spm-page{max-width:760px;padding:16px 20px 0}}
+@media(min-width:1024px){.spm-page{max-width:1120px;padding:20px 28px 0}}
 
-.spm-header{border-radius:22px;padding:22px 20px 20px;color:#fff;
+.spm-header{border-radius:var(--radius);padding:16px 18px;color:#fff;
   background:linear-gradient(135deg,var(--spm-primary),var(--spm-accent));
-  box-shadow:0 6px 18px rgba(0,0,0,.25);text-align:center;margin-bottom:18px}
-.spm-header h1{margin:0;font-size:clamp(1.25rem,1rem + 1.5vw,1.75rem);font-weight:900;letter-spacing:-.02em}
-.spm-header .spm-subtitle{margin:4px 0 0;font-size:clamp(1rem,.75rem + 1vw,1.35rem);
+  box-shadow:0 6px 18px rgba(0,0,0,.25);text-align:center;margin-bottom:var(--gap)}
+@media(min-width:600px){.spm-header{padding:22px 20px 20px}}
+.spm-header h1{margin:0;font-size:clamp(1.15rem,.95rem + 1.4vw,1.75rem);font-weight:900;letter-spacing:-.02em}
+.spm-header .spm-subtitle{margin:2px 0 0;font-size:clamp(.95rem,.8rem + .8vw,1.3rem);
   font-weight:500;font-style:italic;opacity:.92}
 
-.spm-card{background:var(--card);border:1px solid var(--border);border-radius:22px;
-  padding:20px;box-shadow:0 3px 10px rgba(0,0,0,.1);margin-bottom:16px}
+.spm-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:var(--pad);box-shadow:0 3px 10px rgba(0,0,0,.08);margin-bottom:var(--gap)}
 
 .spm-btn{display:inline-block;border:none;border-radius:999px;padding:12px 24px;font-weight:700;
   font-size:1rem;cursor:pointer;text-decoration:none;text-align:center;min-height:44px;
@@ -123,89 +149,129 @@ html,body{margin:0;padding:0;width:100%;background:var(--bg);color:var(--text);
 .spm-btn-secondary{background:#fff;color:var(--text);border:2px solid var(--field-border)}
 .spm-btn:focus-visible{outline:3px solid var(--spm-accent);outline-offset:3px}
 
-.spm-footer{text-align:center;font-size:.8rem;color:var(--muted);padding:24px 0 16px}
+.spm-footer{text-align:center;font-size:.78rem;color:var(--muted);padding:16px 0}
 
-/* -- Page specific ------------------------------------------------------ */
-h2.sec{margin:0 0 4px;font-size:1.1rem;font-weight:800;letter-spacing:-.01em}
-p.sec-sub{margin:0 0 16px;font-size:.9rem;color:var(--muted)}
+/* ---- THE THREE LAYOUTS ------------------------------------------------
+   Mobile is the default: one column. Desktop splits the page in two, with
+   the people on the right where there is room to put them side by side. */
+.layout{display:grid;gap:0}
+@media(min-width:1024px){
+  .layout{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:0 var(--gap);align-items:start}
+  .col-b{grid-row:1 / span 2}
+}
 
-.field{margin:0 0 16px;text-align:left}
-.field label{display:block;font-weight:700;font-size:.9rem;margin-bottom:5px}
-.field input{width:100%;padding:12px 14px;font-size:1rem;font-family:inherit;
+h2.sec{margin:0 0 3px;font-size:1.02rem;font-weight:800;letter-spacing:-.01em}
+@media(min-width:600px){h2.sec{font-size:1.1rem;margin-bottom:4px}}
+p.sec-sub{margin:0 0 12px;font-size:.85rem;color:var(--muted)}
+@media(min-width:600px){p.sec-sub{margin-bottom:16px;font-size:.9rem}}
+
+.field{margin:0 0 var(--fgap);text-align:left;min-width:0}
+.field label{display:block;font-weight:700;font-size:.85rem;margin-bottom:4px}
+.field input{width:100%;padding:10px 12px;font-size:1rem;font-family:inherit;
   color:var(--text);background:#fff;border:2px solid var(--field-border);
-  border-radius:12px;min-height:46px}
+  border-radius:11px;min-height:44px}
+@media(min-width:600px){.field input{padding:12px 14px;min-height:46px;border-radius:12px}}
 /* FOCUS = outline. ERROR = border. Separate properties on purpose, so a
    focused invalid field still shows where focus is. */
 .field input:focus-visible{outline:3px solid var(--spm-accent);outline-offset:2px}
 .field input.bad{border-color:var(--spm-primary);background:#fff6f7}
 .req{color:var(--err-text)}
-.hint{margin:5px 0 0;font-size:.8rem;color:var(--muted)}
+.hint{margin:4px 0 0;font-size:.78rem;color:var(--muted)}
+/* Compact mode drops the nice-to-have hints. The ones that prevent an error
+   carry .hint-keep and stay at every width. */
+@media(max-width:599px){ .hint:not(.hint-keep){display:none} }
 
-/* Inline error, right under its own field. Carries a glyph as well as colour,
-   so the error is not signalled by colour alone (WCAG 2.2 SC 1.4.1). */
-.fe{margin:6px 0 0;font-size:.85rem;font-weight:700;color:var(--err-text);
-  display:none;align-items:flex-start;gap:6px;line-height:1.4}
+/* Inline error, under its own field. Carries a glyph as well as colour, so
+   the error is not signalled by colour alone (WCAG 2.2 SC 1.4.1). */
+.fe{margin:5px 0 0;font-size:.82rem;font-weight:700;color:var(--err-text);
+  display:none;align-items:flex-start;gap:5px;line-height:1.35}
 .fe.shown{display:flex}
-.fe::before{content:"\26A0";font-size:.95rem;line-height:1.35;flex:0 0 auto}
+.fe::before{content:"\26A0";font-size:.9rem;line-height:1.3;flex:0 0 auto}
 
-.row2{display:grid;gap:0 14px}
-@media(min-width:620px){.row2{grid-template-columns:1fr 1fr}}
+.row2{display:grid;gap:0 var(--gap)}
+@media(min-width:420px){.row2{grid-template-columns:1fr 1fr}}
 
 /* Radio pills. The whole pill is the tap target, 44px minimum. */
-.pills{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 6px}
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin:0}
+@media(min-width:600px){.pills{gap:8px}}
 .pill{position:relative}
 .pill input{position:absolute;opacity:0;width:1px;height:1px}
-.pill span{display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;
+.pill span{display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 14px;
   border:2px solid var(--field-border);border-radius:999px;background:#fff;font-weight:700;
-  font-size:.95rem;cursor:pointer;user-select:none;transition:background .12s,border-color .12s,color .12s}
+  font-size:.9rem;cursor:pointer;user-select:none;white-space:nowrap;
+  transition:background .12s,border-color .12s,color .12s}
+@media(min-width:600px){.pill span{padding:0 18px;font-size:.95rem}}
 .pill input:checked + span{background:linear-gradient(135deg,var(--spm-primary),var(--spm-accent));
   border-color:transparent;color:#fff}
 .pill input:focus-visible + span{outline:3px solid var(--spm-accent);outline-offset:3px}
 .pills.bad .pill span{border-color:var(--spm-primary);background:#fff6f7}
 
-/* One person = one bordered block. */
-.plr{border:1px solid var(--border);border-radius:16px;padding:16px;margin:0 0 14px;background:#fcfcfc}
+/* Split-captain switch, shown only for Double Jeopardy. */
+.switch{display:none;margin:12px 0 0;padding:11px 13px;border-radius:12px;
+  background:var(--ok-bg);border:1px solid var(--ok-border)}
+.switch.shown{display:block}
+.switch label{display:flex;align-items:flex-start;gap:10px;cursor:pointer;
+  font-size:.88rem;font-weight:700;color:var(--ok-text);min-height:44px;align-items:center}
+.switch input{width:22px;height:22px;flex:0 0 auto;accent-color:var(--spm-accent);margin:0}
+.switch input:focus-visible{outline:3px solid var(--spm-accent);outline-offset:2px}
+
+/* People. One block each, two-up from tablet onward. */
+.side-head{margin:var(--gap) 0 8px;font-size:.78rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.side-head:first-child{margin-top:0}
+.people{display:grid;gap:var(--gap)}
+@media(min-width:600px){.people{grid-template-columns:1fr 1fr}}
+.plr{border:1px solid var(--border);border-radius:13px;padding:12px;background:#fcfcfc;min-width:0}
+@media(min-width:600px){.plr{padding:14px;border-radius:15px}}
 .plr.key{background:var(--ok-bg);border-color:var(--ok-border)}
-.plr-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 0 4px}
-.plr-role{font-weight:800;font-size:1rem}
-.plr-tag{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
-.plr-sub{margin:0 0 14px;font-size:.85rem;color:var(--muted)}
+.plr-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin:0 0 10px}
+.plr-role{font-weight:800;font-size:.93rem}
+.plr-tag{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);
+  font-weight:700;white-space:nowrap}
 .plr .field:last-child{margin-bottom:0}
 
-.notice{margin:0 0 16px;padding:13px 15px;border-radius:14px;background:#fdf3e0;
+.notice{margin:0 0 var(--fgap);padding:11px 13px;border-radius:12px;background:#fdf3e0;
   border:1px solid #e8cf9a;border-left:5px solid #c98a00;color:#7a5500;
-  font-size:.9rem;font-weight:600;line-height:1.5}
+  font-size:.85rem;font-weight:600;line-height:1.45}
 .notice b{font-weight:800;color:#5e4200}
 
-.info{margin:0 0 16px;padding:13px 15px;border-radius:14px;background:var(--ok-bg);
-  border:1px solid var(--ok-border);color:var(--ok-text);font-size:.9rem;line-height:1.5}
+.info{margin:0 0 var(--fgap);padding:11px 13px;border-radius:12px;background:var(--ok-bg);
+  border:1px solid var(--ok-border);color:var(--ok-text);font-size:.85rem;line-height:1.45}
 .info b{font-weight:800}
 .info:last-child{margin-bottom:0}
 .info a{color:var(--ok-text)}
 
-/* Draft restored. Announced, never silent, and always with a way out. */
-.draft{margin:0 0 16px;padding:13px 15px;border-radius:14px;background:var(--ok-bg);
-  border:1px solid var(--ok-border);color:var(--ok-text);font-size:.9rem;line-height:1.5;
-  display:none}
+.draft{margin:0 0 var(--gap);padding:12px 14px;border-radius:var(--radius);background:var(--ok-bg);
+  border:1px solid var(--ok-border);color:var(--ok-text);font-size:.88rem;line-height:1.45;display:none}
 .draft.shown{display:block}
-.draft button{margin-top:10px;font-size:.9rem;padding:9px 18px;min-height:44px}
+.draft button{margin-top:9px;font-size:.88rem;padding:8px 16px}
 
-.err{margin:0 0 14px;color:var(--err-text);font-weight:700;font-size:.95rem;text-align:left;
-  padding:12px 14px;border:2px solid var(--spm-primary);border-radius:12px;background:#fff6f7}
+.err{margin:0 0 var(--fgap);color:var(--err-text);font-weight:700;font-size:.9rem;text-align:left;
+  padding:11px 13px;border:2px solid var(--spm-primary);border-radius:12px;background:#fff6f7}
 .err:empty{display:none;padding:0;border:none}
 
-.submit-wrap{text-align:center;padding:4px 0 8px}
-.submit-wrap .spm-btn{width:100%;max-width:360px;font-size:1.05rem;padding:15px 24px}
+/* MOBILE: the submit bar sticks, so it is always one thumb away. From tablet
+   up there is room to simply place it after the form. */
+.submit-bar{position:sticky;bottom:0;z-index:20;padding:10px 0 12px;
+  background:linear-gradient(to top,var(--bg) 70%,rgba(245,245,245,0));text-align:center}
+.submit-bar .spm-btn{width:100%;font-size:1.02rem;padding:14px 24px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+.submit-bar .hint{display:none}
+@media(min-width:600px){
+  .submit-bar{position:static;background:none;padding:6px 0 14px}
+  .submit-bar .spm-btn{width:100%;max-width:340px;box-shadow:none}
+  .submit-bar .hint{display:block;margin-top:8px}
+}
 
 /* Honeypot. Hidden from people, not from a naive bot. Not a rate limit:
    nobody real is ever slowed down by it. */
 .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
 
-.done{text-align:center;padding:10px 4px}
-.done h2{margin:0 0 10px;font-size:1.3rem;font-weight:800}
-.done p{margin:0 0 14px;color:var(--muted)}
-.done .tick{font-size:3rem;line-height:1;margin:0 0 10px}
+.done{text-align:center;padding:8px 4px}
+.done h2{margin:0 0 8px;font-size:1.25rem;font-weight:800}
+.done p{margin:0 0 12px;color:var(--muted)}
+.done .tick{font-size:2.6rem;line-height:1;margin:0 0 8px}
 .done .info{text-align:left}
+.done .spm-btn{margin-top:4px}
 </style>
 </head>
 <body>
@@ -213,11 +279,10 @@ p.sec-sub{margin:0 0 16px;font-size:.9rem;color:var(--muted)}
 <div class="spm-page">
 
   <header class="spm-header">
-    <h1>Team Registration Form</h1>
+    <h1>Team Registration</h1>
     <p class="spm-subtitle" id="hdr-session">South Portland Metro APA</p>
   </header>
 
-  <!-- Announced draft restore. Hidden until there is actually a draft. -->
   <div class="spm-card draft" id="draft-note">
     <b>We picked up where you left off.</b> Your answers from last time are filled in below.
     <div><button type="button" class="spm-btn spm-btn-secondary" id="draft-clear">Start fresh instead</button></div>
@@ -225,135 +290,82 @@ p.sec-sub{margin:0 0 16px;font-size:.9rem;color:var(--muted)}
 
   <!-- ===================== THE FORM ===================== -->
   <form id="form" novalidate>
+   <div class="layout">
 
-    <section class="spm-card">
-      <h2 class="sec">When and what</h2>
-      <p class="sec-sub">Pick the night you play and the format you are registering for.</p>
+    <div class="col-a">
+      <section class="spm-card">
+        <h2 class="sec">Your division</h2>
+        <p class="sec-sub">The night you play and what you play.</p>
 
-      <div class="field">
-        <label id="lbl-day">Day of play <span class="req" aria-hidden="true">*</span></label>
-        <div class="pills" id="days" role="radiogroup" aria-labelledby="lbl-day" aria-describedby="days-err"></div>
-        <p class="fe" id="days-err"></p>
-      </div>
-
-      <div class="field">
-        <label id="lbl-fmt">Format <span class="req" aria-hidden="true">*</span></label>
-        <div class="pills" id="fmts" role="radiogroup" aria-labelledby="lbl-fmt" aria-describedby="fmts-err"></div>
-        <p class="fe" id="fmts-err"></p>
-        <p class="hint">Double Jeopardy teams play 8-Ball and 9-Ball on the same night.</p>
-      </div>
-
-      <div class="row2">
         <div class="field">
-          <label for="f-div">Division <span class="req" aria-hidden="true">*</span></label>
-          <input id="f-div" maxlength="80" autocomplete="off" aria-describedby="f-div-err f-div-hint">
-          <p class="fe" id="f-div-err"></p>
-          <p class="hint" id="f-div-hint">Not sure? Put the day and time you play.</p>
+          <label id="lbl-day">Day of play <span class="req" aria-hidden="true">*</span></label>
+          <div class="pills" id="days" role="radiogroup" aria-labelledby="lbl-day" aria-describedby="days-err"></div>
+          <p class="fe" id="days-err"></p>
         </div>
+
         <div class="field">
-          <label for="f-ref">Referred by</label>
-          <input id="f-ref" maxlength="80" autocomplete="off" aria-describedby="f-ref-hint">
-          <p class="hint" id="f-ref-hint">Optional. Who sent you our way?</p>
+          <label id="lbl-fmt">Format <span class="req" aria-hidden="true">*</span></label>
+          <div class="pills" id="fmts" role="radiogroup" aria-labelledby="lbl-fmt" aria-describedby="fmts-err"></div>
+          <p class="fe" id="fmts-err"></p>
+          <div class="switch" id="split-wrap">
+            <label for="f-split">
+              <input type="checkbox" id="f-split">
+              <span>Different captains for our 8-Ball and 9-Ball sides</span>
+            </label>
+          </div>
         </div>
-      </div>
-    </section>
 
-    <section class="spm-card">
-      <h2 class="sec">Your team</h2>
-      <p class="sec-sub">The name you want on the schedule and the standings.</p>
-      <div class="field">
-        <label for="f-team">Team name <span class="req" aria-hidden="true">*</span></label>
-        <input id="f-team" maxlength="80" autocomplete="off" aria-describedby="f-team-err">
-        <p class="fe" id="f-team-err"></p>
-      </div>
-      <div class="field">
-        <label for="f-host">Host location <span class="req" aria-hidden="true">*</span></label>
-        <input id="f-host" maxlength="100" autocomplete="off" aria-describedby="f-host-err f-host-hint">
-        <p class="fe" id="f-host-err"></p>
-        <p class="hint" id="f-host-hint">Where your team plays its home matches. The name is enough.</p>
-      </div>
-    </section>
-
-    <section class="spm-card">
-      <h2 class="sec">Who runs the team</h2>
-      <p class="sec-sub">Just the two of you for now.</p>
-
-      <div class="info">
-        <b>You do not need your roster yet.</b> Add and drop players any time through
-        the first four weeks of the session, and we will sort the rest out then.
-      </div>
-
-      <div class="plr key">
-        <div class="plr-head"><span class="plr-role">Team captain</span><span class="plr-tag">Required</span></div>
-        <p class="plr-sub">We will reply to you about the division, the schedule and anything missing.</p>
-        <div class="field">
-          <label for="p0-name">Full name <span class="req" aria-hidden="true">*</span></label>
-          <input id="p0-name" maxlength="80" autocomplete="name" aria-describedby="p0-name-err">
-          <p class="fe" id="p0-name-err"></p>
-        </div>
         <div class="row2">
           <div class="field">
-            <label for="p0-apa">APA number <span class="req" aria-hidden="true">*</span></label>
-            <input id="p0-apa" inputmode="numeric" maxlength="12" placeholder="8 digits"
-                   autocomplete="off" aria-describedby="p0-apa-err p0-apa-hint">
-            <p class="fe" id="p0-apa-err"></p>
-            <p class="hint" id="p0-apa-hint">All 8 digits from your card.</p>
+            <label for="f-div">Division <span class="req" aria-hidden="true">*</span></label>
+            <input id="f-div" maxlength="80" autocomplete="off" aria-describedby="f-div-err f-div-hint">
+            <p class="fe" id="f-div-err"></p>
+            <p class="hint hint-keep" id="f-div-hint">Not sure? Put the time you play.</p>
           </div>
           <div class="field">
-            <label for="p0-phone">Phone <span class="req" aria-hidden="true">*</span></label>
-            <input id="p0-phone" type="tel" inputmode="tel" maxlength="30" autocomplete="tel" aria-describedby="p0-phone-err">
-            <p class="fe" id="p0-phone-err"></p>
+            <label for="f-ref">Referred by</label>
+            <input id="f-ref" maxlength="80" autocomplete="off" aria-describedby="f-ref-hint">
+            <p class="hint" id="f-ref-hint">Optional. Who sent you our way?</p>
           </div>
         </div>
-        <div class="field">
-          <label for="p0-email">Email <span class="req" aria-hidden="true">*</span></label>
-          <input id="p0-email" type="email" inputmode="email" maxlength="120" autocomplete="email" aria-describedby="p0-email-err p0-email-hint">
-          <p class="fe" id="p0-email-err"></p>
-          <p class="hint" id="p0-email-hint">Your copy of this form goes here. Electronic divisions need it.</p>
-        </div>
-      </div>
+      </section>
 
-      <div class="plr">
-        <div class="plr-head"><span class="plr-role">Co-captain</span><span class="plr-tag">Optional</span></div>
-        <p class="plr-sub">Worth adding. They are who we call when the captain cannot be reached.</p>
+      <section class="spm-card">
+        <h2 class="sec">Your team</h2>
         <div class="field">
-          <label for="p1-name">Full name</label>
-          <input id="p1-name" maxlength="80" autocomplete="off" aria-describedby="p1-name-err">
-          <p class="fe" id="p1-name-err"></p>
-        </div>
-        <div class="row2">
-          <div class="field">
-            <label for="p1-apa">APA number</label>
-            <input id="p1-apa" inputmode="numeric" maxlength="12" placeholder="8 digits"
-                   autocomplete="off" aria-describedby="p1-apa-err">
-            <p class="fe" id="p1-apa-err"></p>
-          </div>
-          <div class="field">
-            <label for="p1-phone">Phone</label>
-            <input id="p1-phone" type="tel" inputmode="tel" maxlength="30" autocomplete="off" aria-describedby="p1-phone-err">
-            <p class="fe" id="p1-phone-err"></p>
-          </div>
+          <label for="f-team">Team name <span class="req" aria-hidden="true">*</span></label>
+          <input id="f-team" maxlength="80" autocomplete="off" aria-describedby="f-team-err">
+          <p class="fe" id="f-team-err"></p>
         </div>
         <div class="field">
-          <label for="p1-email">Email</label>
-          <input id="p1-email" type="email" inputmode="email" maxlength="120" autocomplete="off" aria-describedby="p1-email-err">
-          <p class="fe" id="p1-email-err"></p>
+          <label for="f-host">Host location <span class="req" aria-hidden="true">*</span></label>
+          <input id="f-host" maxlength="100" autocomplete="off" aria-describedby="f-host-err f-host-hint">
+          <p class="fe" id="f-host-err"></p>
+          <p class="hint" id="f-host-hint">Where you play your home matches. The name is enough.</p>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
 
-    <section class="spm-card">
-      <div class="notice">
-        <b>Team deposit:</b> a <b id="dep-amt">$45</b> deposit is strongly suggested, and it
-        pre-pays your last week of team fees so nobody is scrambling on the final night.
-      </div>
-      <div class="info">
-        <b>Get ahead of the game.</b> Have your teammates pay their member dues online at
-        <a href="https://www.poolplayers.com" target="_blank" rel="noopener">poolplayers.com</a>
-        before the first night of play, and avoid the chaos.
-      </div>
-      <div class="info" id="next-up"></div>
-    </section>
+    <div class="col-b">
+      <section class="spm-card">
+        <h2 class="sec" id="people-title">Who to contact</h2>
+        <p class="sec-sub" id="people-sub">Pick a format first.</p>
+        <div class="info" id="people-note" hidden></div>
+        <div id="people"></div>
+      </section>
+
+      <section class="spm-card">
+        <div class="notice" id="deposit"></div>
+        <div class="info">
+          <b>Get ahead of the game.</b> Have everyone pay their member dues at
+          <a href="https://www.poolplayers.com" target="_blank" rel="noopener">poolplayers.com</a>
+          before the first night of play.
+        </div>
+        <div class="info" id="next-up"></div>
+      </section>
+    </div>
+
+   </div>
 
     <!-- Bots fill every field they can see. People never see this one. -->
     <div class="hp" aria-hidden="true">
@@ -363,9 +375,9 @@ p.sec-sub{margin:0 0 16px;font-size:.9rem;color:var(--muted)}
 
     <p class="err" id="err" role="alert" aria-live="assertive"></p>
 
-    <div class="submit-wrap">
+    <div class="submit-bar">
       <button type="submit" class="spm-btn spm-btn-primary" id="go">Submit registration</button>
-      <p class="hint" id="go-hint">This emails your form straight to the league office.</p>
+      <p class="hint hint-keep" id="go-hint">This emails your form straight to the league office.</p>
     </div>
   </form>
 
@@ -383,7 +395,7 @@ p.sec-sub{margin:0 0 16px;font-size:.9rem;color:var(--muted)}
   </section>
 
   <p class="spm-footer">
-    South Portland Metro APA &middot; Questions?
+    South Portland Metro APA &middot;
     <a href="mailto:southportlandmetroapa@gmail.com" style="color:var(--spm-primary);font-weight:700">email us</a>
   </p>
 </div>
@@ -391,8 +403,7 @@ p.sec-sub{margin:0 0 16px;font-size:.9rem;color:var(--muted)}
 <script>
 /* ========================================================================
    EDIT THESE EACH SESSION. Nothing else on this page needs touching.
-   Leave a date blank and its line simply does not appear, which is better
-   than showing a stale deadline that has already passed.
+   A blank date simply does not appear, which beats a stale one.
    ====================================================================== */
 var SESSION_NAME   = 'Spring 2027';
 var DEADLINE       = '';   /* e.g. 'December 15, 2026' */
@@ -401,22 +412,42 @@ var SESSION_STARTS = '';   /* e.g. 'January 5, 2027'   */
 var GAS = "https://script.google.com/macros/s/AKfycbzGTzkBRTrIIP_tD6sbtOOUmNZkXDdtxPoO4c8fdWt5h3tZFueNSISPv8Q3LWStx73Whw/exec";
 
 var DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Sat', 'Sun'];
+
+/* FORMATS mirrors teamreg.formats, with the roster rule the league actually
+   wants on THIS form:
+     whole:false  a 5-to-8 player team. Ask for the captain and co-captain and
+                  nothing else; players are added and dropped in the first four
+                  weeks anyway.
+     whole:true   a 2-to-4 player team. That IS the roster, so ask for all of it.
+     split:true   Double Jeopardy may run different captains on its 8-Ball and
+                  9-Ball sides. The switch appears only for these.
+     deposit      null means we have not been told the figure; the notice then
+                  says a deposit is suggested without naming a wrong number.
+   Keep short labels: these are pills on a 320px screen. */
 var FORMATS = [
-  { key: '8-Ball',          deposit: 45 },
-  { key: '9-Ball',          deposit: 45 },
-  { key: 'Double Jeopardy', deposit: 90 }
+  { key: '8-Ball Open',             label: '8-Ball',       min: 1, max: 2, whole: false, deposit: 45 },
+  { key: '9-Ball Open',             label: '9-Ball',       min: 1, max: 2, whole: false, deposit: 45 },
+  { key: 'Double Jeopardy',         label: 'Double Jeopardy', min: 1, max: 2, whole: false, deposit: 90, split: true },
+  { key: 'Ladies',                  label: 'Ladies',       min: 1, max: 2, whole: false, deposit: 45 },
+  { key: '8-Ball Doubles',          label: '8-Ball Doubles', min: 2, max: 3, whole: true, deposit: null },
+  { key: '9-Ball Doubles',          label: '9-Ball Doubles', min: 2, max: 3, whole: true, deposit: null },
+  { key: 'Double Jeopardy Doubles', label: 'DJ Doubles',   min: 2, max: 3, whole: true, deposit: null },
+  { key: 'Masters',                 label: 'Masters',      min: 3, max: 4, whole: true, deposit: null }
 ];
-/* v2: the v1 shape carried street addresses and up to twelve players. Both are
-   gone, so an old draft must not be restored into this form. */
-var DRAFT_KEY = 'treg_draft_v2';
+
+/* v3: v1 carried street addresses, v2 had a fixed two-person shape. Neither
+   can be restored into this form. */
+var DRAFT_KEY = 'treg_draft_v3';
 
 var $ = function (id) { return document.getElementById(id); };
 function esc(s) {
   return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+function digits(s) { return String(s || '').replace(/\D/g, ''); }
+function emailish(s) { return /^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(String(s || '')); }
 
-/* ---- header / notices --------------------------------------------- */
+/* ---- header / standing notices -------------------------------------- */
 $('hdr-session').textContent = SESSION_NAME;
 document.title = 'Team Registration ' + SESSION_NAME + ' · South Portland Metro APA';
 (function () {
@@ -436,13 +467,159 @@ function pill(group, value, label) {
          '<span>' + esc(label) + '</span></label>';
 }
 $('days').innerHTML = DAYS.map(function (d) { return pill('day', d, d); }).join('');
-$('fmts').innerHTML = FORMATS.map(function (f) { return pill('format', f.key, f.key); }).join('');
+$('fmts').innerHTML = FORMATS.map(function (f) { return pill('format', f.key, f.label); }).join('');
 
-function syncDeposit() {
+function currentFormat() {
   var sel = document.querySelector('input[name=format]:checked');
-  var f = null, i;
-  for (i = 0; i < FORMATS.length; i++) if (sel && FORMATS[i].key === sel.value) f = FORMATS[i];
-  $('dep-amt').textContent = '$' + (f ? f.deposit : 45);
+  if (!sel) return null;
+  for (var i = 0; i < FORMATS.length; i++) if (FORMATS[i].key === sel.value) return FORMATS[i];
+  return null;
+}
+function isSplit() {
+  var f = currentFormat();
+  return !!(f && f.split && $('f-split').checked);
+}
+
+/* ---- the slot model --------------------------------------------------
+   One descriptor per person the form will ask for. The KEY is stable across
+   a format change, so typed values survive switching 8-Ball to Masters.
+     contact  this person needs a phone; the FIRST contact also needs an email
+              and is who the league replies to
+     req      this slot must be filled at all
+   Anything past `min` is optional, but a PARTLY filled optional slot is a
+   typo rather than a choice and is caught as one.                        */
+function slots() {
+  var f = currentFormat();
+  if (!f) return [];
+  var out = [], i;
+  if (isSplit()) {
+    out.push({ key: 's8p0', side: '8-Ball', role: '8-Ball captain', tag: 'Required', contact: true, req: true });
+    out.push({ key: 's8p1', side: '8-Ball', role: '8-Ball co-captain', tag: 'Optional' });
+    out.push({ key: 's9p0', side: '9-Ball', role: '9-Ball captain', tag: 'Required', contact: true, req: true });
+    out.push({ key: 's9p1', side: '9-Ball', role: '9-Ball co-captain', tag: 'Optional' });
+    return out;
+  }
+  if (!f.whole) {
+    out.push({ key: 'p0', role: 'Team captain', tag: 'Required', contact: true, req: true });
+    out.push({ key: 'p1', role: 'Co-captain', tag: 'Optional' });
+    return out;
+  }
+  for (i = 0; i < f.max; i++) {
+    out.push({
+      key: 'p' + i,
+      role: i === 0 ? 'Captain' : 'Player ' + (i + 1),
+      tag: i === 0 ? 'Required' : (i < f.min ? 'Required' : 'Optional'),
+      contact: i === 0,
+      req: i < f.min
+    });
+  }
+  return out;
+}
+
+function personBlock(s, first) {
+  var star = ' <span class="req" aria-hidden="true">*</span>';
+  var k = s.key;
+  var h = '';
+  h += '<div class="plr' + (s.contact ? ' key' : '') + '" data-key="' + k + '">';
+  h += '<div class="plr-head"><span class="plr-role">' + esc(s.role) + '</span>' +
+       '<span class="plr-tag">' + esc(s.tag) + '</span></div>';
+  h += '<div class="field"><label for="' + k + '-name">Name' + (s.req ? star : '') + '</label>' +
+       '<input id="' + k + '-name" data-f="name" maxlength="80" autocomplete="off" ' +
+       'aria-describedby="' + k + '-name-err"><p class="fe" id="' + k + '-name-err"></p></div>';
+  h += '<div class="field"><label for="' + k + '-apa">APA number' + (s.req ? star : '') + '</label>' +
+       '<input id="' + k + '-apa" data-f="apa" inputmode="numeric" maxlength="12" placeholder="8 digits" ' +
+       'autocomplete="off" aria-describedby="' + k + '-apa-err ' + k + '-apa-hint">' +
+       '<p class="fe" id="' + k + '-apa-err"></p>' +
+       '<p class="hint" id="' + k + '-apa-hint">All 8 digits from the card.</p></div>';
+  h += '<div class="field"><label for="' + k + '-phone">Phone' + (s.contact ? star : '') + '</label>' +
+       '<input id="' + k + '-phone" data-f="phone" type="tel" inputmode="tel" maxlength="30" ' +
+       'autocomplete="off" aria-describedby="' + k + '-phone-err"><p class="fe" id="' + k + '-phone-err"></p></div>';
+  h += '<div class="field"><label for="' + k + '-email">Email' + (first ? star : '') + '</label>' +
+       '<input id="' + k + '-email" data-f="email" type="email" inputmode="email" maxlength="120" ' +
+       'autocomplete="off" aria-describedby="' + k + '-email-err ' + k + '-email-hint">' +
+       '<p class="fe" id="' + k + '-email-err"></p>' +
+       (first ? '<p class="hint hint-keep" id="' + k + '-email-hint">Your copy of this form goes here.</p>'
+              : '<p class="hint" id="' + k + '-email-hint">Optional.</p>') + '</div>';
+  h += '</div>';
+  return h;
+}
+
+/* Values are carried across a re-render by SLOT KEY, never by position. */
+function readPeople() {
+  var map = {}, blocks = $('people').querySelectorAll('.plr'), i;
+  for (i = 0; i < blocks.length; i++) {
+    var b = blocks[i], k = b.getAttribute('data-key');
+    var g = function (f) { var el = b.querySelector('[data-f=' + f + ']'); return el ? el.value : ''; };
+    map[k] = { name: g('name'), apa: g('apa'), phone: g('phone'), email: g('email') };
+  }
+  return map;
+}
+function writePeople(map) {
+  var blocks = $('people').querySelectorAll('.plr'), i;
+  for (i = 0; i < blocks.length; i++) {
+    var b = blocks[i], k = b.getAttribute('data-key'), v = map[k];
+    if (!v) continue;
+    ['name', 'apa', 'phone', 'email'].forEach(function (f) {
+      var el = b.querySelector('[data-f=' + f + ']');
+      if (el) el.value = v[f] || '';
+    });
+  }
+}
+
+function renderPeople(keep) {
+  var carried = keep || readPeople();
+  var f = currentFormat();
+  var list = slots();
+
+  $('split-wrap').classList.toggle('shown', !!(f && f.split));
+  if (!f || !f.split) $('f-split').checked = false;
+
+  if (!list.length) {
+    $('people').innerHTML = '';
+    $('people-sub').textContent = 'Pick a format first.';
+    $('people-note').hidden = true;
+    return;
+  }
+
+  var html = '', i, firstDone = false;
+  if (isSplit()) {
+    html += '<p class="side-head">8-Ball side</p><div class="people">';
+    for (i = 0; i < 2; i++) { html += personBlock(list[i], !firstDone); firstDone = true; }
+    html += '</div><p class="side-head">9-Ball side</p><div class="people">';
+    for (i = 2; i < 4; i++) html += personBlock(list[i], false);
+    html += '</div>';
+  } else {
+    html += '<div class="people">';
+    for (i = 0; i < list.length; i++) { html += personBlock(list[i], !firstDone); firstDone = true; }
+    html += '</div>';
+  }
+  $('people').innerHTML = html;
+  writePeople(carried);
+
+  /* Say what this format actually needs, in words, before anyone counts boxes. */
+  if (f.whole) {
+    $('people-title').textContent = 'Your team';
+    $('people-sub').textContent = f.min === f.max
+      ? 'All ' + f.min + ' of you.'
+      : f.min + ' to ' + f.max + ' players.';
+    $('people-note').innerHTML = '<b>' + esc(f.label) + ' teams are ' + f.min +
+      (f.max > f.min ? ' to ' + f.max : '') + ' players</b>, so this is the whole team. ' +
+      'The last slot is optional.';
+    $('people-note').hidden = false;
+  } else {
+    $('people-title').textContent = 'Who runs the team';
+    $('people-sub').textContent = isSplit() ? 'One captain per side.' : 'Just the two of you for now.';
+    $('people-note').innerHTML = '<b>You do not need your roster yet.</b> Add and drop players ' +
+      'any time through the first four weeks of the session.';
+    $('people-note').hidden = false;
+  }
+
+  /* Deposit follows the format, and never invents a figure we were not given. */
+  $('deposit').innerHTML = f.deposit
+    ? '<b>Team deposit:</b> <b>$' + f.deposit + '</b> is strongly suggested. It pre-pays your ' +
+      'last week of team fees so nobody is scrambling on the final night.'
+    : '<b>Team deposit:</b> a deposit is strongly suggested. It pre-pays your last week of team ' +
+      'fees. Ask us for the ' + esc(f.label) + ' amount and we will tell you.';
 }
 
 /* ---- field-level errors ---------------------------------------------
@@ -456,9 +633,7 @@ function setFieldErr(id, msg) {
     if (msg) box.classList.add('shown'); else box.classList.remove('shown');
   }
   if (!el) return;
-  if (el.classList) {
-    if (msg) el.classList.add('bad'); else el.classList.remove('bad');
-  }
+  if (msg) el.classList.add('bad'); else el.classList.remove('bad');
   if (el.tagName === 'INPUT') {
     if (msg) el.setAttribute('aria-invalid', 'true'); else el.removeAttribute('aria-invalid');
   }
@@ -466,6 +641,8 @@ function setFieldErr(id, msg) {
 function clearAllErrs() {
   var boxes = document.querySelectorAll('.fe'), i;
   for (i = 0; i < boxes.length; i++) setFieldErr(boxes[i].id.replace(/-err$/, ''), '');
+  $('days').classList.remove('bad');
+  $('fmts').classList.remove('bad');
   $('err').textContent = '';
 }
 
@@ -474,45 +651,40 @@ function clearAllErrs() {
    to 18820001 is a different real member's card, accepted everywhere with
    nothing to show the captain anything went wrong. Normalising must never
    be able to manufacture a valid value.                                 */
-function onApaInput(e) {
+$('people').addEventListener('input', function (e) {
+  if (!e.target || e.target.getAttribute('data-f') !== 'apa') return;
   var v = e.target.value.replace(/\D/g, '');
   if (v !== e.target.value) e.target.value = v;
-  var id = e.target.id;
-  if (!v) { setFieldErr(id, ''); return; }
-  if (v.length !== 8) {
-    setFieldErr(id, 'That is ' + v.length + ' digit' + (v.length === 1 ? '' : 's') +
-                    '. An APA number has 8.');
-  } else {
-    setFieldErr(id, '');
-  }
-}
-['p0-apa', 'p1-apa'].forEach(function (id) {
-  $(id).addEventListener('input', onApaInput);
+  if (!v) { setFieldErr(e.target.id, ''); return; }
+  setFieldErr(e.target.id, v.length === 8 ? ''
+    : 'That is ' + v.length + ' digit' + (v.length === 1 ? '' : 's') + '. An APA number has 8.');
 });
 
-/* ---- collect / draft -------------------------------------------------
-   The draft lives only in THIS browser and is wiped as soon as the form is
-   accepted. It holds no street address, because the form collects none.  */
-function person(i) {
-  return {
-    name: $('p' + i + '-name').value.trim(),
-    apa: $('p' + i + '-apa').value.replace(/\D/g, ''),
-    phone: $('p' + i + '-phone').value.trim(),
-    email: $('p' + i + '-email').value.trim()
-  };
-}
+/* ---- collect / draft ------------------------------------------------- */
 function collect() {
   var selDay = document.querySelector('input[name=day]:checked');
-  var selFmt = document.querySelector('input[name=format]:checked');
+  var f = currentFormat();
+  var map = readPeople(), list = slots(), people = [], i;
+  for (i = 0; i < list.length; i++) {
+    var s = list[i], v = map[s.key] || {};
+    people.push({
+      key: s.key, role: s.role, side: s.side || '',
+      name: String(v.name || '').trim(),
+      apa: digits(v.apa),
+      phone: String(v.phone || '').trim(),
+      email: String(v.email || '').trim()
+    });
+  }
   return {
     session: SESSION_NAME,
     day: selDay ? selDay.value : '',
-    format: selFmt ? selFmt.value : '',
+    format: f ? f.key : '',
+    split: isSplit(),
     division: $('f-div').value.trim(),
     referred_by: $('f-ref').value.trim(),
     team_name: $('f-team').value.trim(),
     host_name: $('f-host').value.trim(),
-    players: [person(0), person(1)],
+    players: people,
     spm_leave_blank: $('f-hp').value
   };
 }
@@ -529,10 +701,10 @@ function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {}
 function restoreDraft() {
   var raw = null;
   try { raw = localStorage.getItem(DRAFT_KEY); } catch (e) {}
-  if (!raw) return;
+  if (!raw) { renderPeople({}); return; }
   var d;
-  try { d = JSON.parse(raw); } catch (e) { clearDraft(); return; }
-  if (!d || d.session !== SESSION_NAME) { clearDraft(); return; }
+  try { d = JSON.parse(raw); } catch (e) { clearDraft(); renderPeople({}); return; }
+  if (!d || d.session !== SESSION_NAME) { clearDraft(); renderPeople({}); return; }
 
   var setRadio = function (group, v) {
     if (!v) return;
@@ -541,39 +713,29 @@ function restoreDraft() {
   };
   setRadio('day', d.day);
   setRadio('format', d.format);
+  $('f-split').checked = !!d.split;
   $('f-div').value = d.division || '';
   $('f-ref').value = d.referred_by || '';
   $('f-team').value = d.team_name || '';
   $('f-host').value = d.host_name || '';
-  var saved = d.players || [], i;
-  for (i = 0; i < 2; i++) {
-    var p = saved[i] || {};
-    $('p' + i + '-name').value = p.name || '';
-    $('p' + i + '-apa').value = p.apa || '';
-    $('p' + i + '-phone').value = p.phone || '';
-    $('p' + i + '-email').value = p.email || '';
-  }
-  syncDeposit();
-  /* Announced, never silent, and always with a way out. */
-  $('draft-note').classList.add('shown');
+
+  var carried = {}, saved = d.players || [], i;
+  for (i = 0; i < saved.length; i++) if (saved[i] && saved[i].key) carried[saved[i].key] = saved[i];
+  renderPeople(carried);
+  $('draft-note').classList.add('shown');   /* announced, never silent */
 }
 restoreDraft();
-syncDeposit();
 
-$('draft-clear').addEventListener('click', function () {
-  clearDraft();
-  location.reload();
-});
+$('draft-clear').addEventListener('click', function () { clearDraft(); location.reload(); });
+$('again').addEventListener('click', function () { clearDraft(); location.reload(); });
 $('form').addEventListener('input', saveDraft);
-$('fmts').addEventListener('change', function () { syncDeposit(); saveDraft(); });
 $('days').addEventListener('change', saveDraft);
+$('fmts').addEventListener('change', function () { renderPeople(); saveDraft(); });
+$('f-split').addEventListener('change', function () { renderPeople(); saveDraft(); });
 
 /* ---- validation ------------------------------------------------------
    Client side only to be KIND. The same rules run again on the server,
    because a form that validates only in the browser validates nowhere.  */
-function digits(s) { return String(s || '').replace(/\D/g, ''); }
-function emailish(s) { return /^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(String(s || '')); }
-
 function validate(d) {
   clearAllErrs();
   var problems = [], firstBad = null;
@@ -584,32 +746,39 @@ function validate(d) {
   };
 
   if (!d.day) { $('days').classList.add('bad'); flag('days', 'Pick the day you play.'); }
-  else $('days').classList.remove('bad');
   if (!d.format) { $('fmts').classList.add('bad'); flag('fmts', 'Pick a format.'); }
-  else $('fmts').classList.remove('bad');
-
-  if (!d.division) flag('f-div', 'Tell us the division, or the day and time you play.');
+  if (!d.division) flag('f-div', 'Tell us the division, or the time you play.');
   if (!d.team_name) flag('f-team', 'Your team needs a name.');
   if (!d.host_name) flag('f-host', 'Tell us where your team plays.');
+  if (!d.format) return { problems: problems, firstBad: firstBad };
 
-  var c = d.players[0] || {};
-  if (!c.name) flag('p0-name', 'The captain needs a full name.');
-  if (digits(c.apa).length !== 8) {
-    flag('p0-apa', c.apa ? 'That is ' + digits(c.apa).length + ' digits. An APA number has 8.'
-                         : 'The captain needs an 8 digit APA number.');
-  }
-  if (digits(c.phone).length < 10) flag('p0-phone', 'The captain needs a phone number we can reach.');
-  if (!emailish(c.email)) flag('p0-email', 'The captain needs a working email address.');
+  var list = slots(), i, firstContactSeen = false;
+  for (i = 0; i < list.length; i++) {
+    var s = list[i], p = d.players[i] || {}, k = s.key;
+    var any = p.name || p.apa || p.phone || p.email;
+    var isFirst = s.contact && !firstContactSeen;
+    if (s.contact) firstContactSeen = true;
 
-  /* The co-captain is optional. A PARTLY filled co-captain is a typo, not a
-     choice, so catch it here rather than letting the office chase it. */
-  var q = d.players[1] || {};
-  if (q.name || q.apa || q.phone || q.email) {
-    if (!q.name) flag('p1-name', 'Give the co-captain a full name, or clear these boxes.');
-    if (q.apa && digits(q.apa).length !== 8) {
-      flag('p1-apa', 'That is ' + digits(q.apa).length + ' digits. An APA number has 8.');
+    if (!s.req && !any) continue;      /* an untouched optional slot is fine */
+
+    if (!p.name) {
+      flag(k + '-name', s.req ? s.role + ' needs a name.'
+                              : 'Give the ' + s.role.toLowerCase() + ' a name, or clear those boxes.');
     }
-    if (q.email && !emailish(q.email)) flag('p1-email', 'That co-captain email does not look right.');
+    if (s.req || p.apa) {
+      if (p.apa.length !== 8) {
+        flag(k + '-apa', p.apa ? 'That is ' + p.apa.length + ' digits. An APA number has 8.'
+                               : s.role + ' needs an 8 digit APA number.');
+      }
+    }
+    if (s.contact && digits(p.phone).length < 10) {
+      flag(k + '-phone', s.role + ' needs a phone number we can reach.');
+    }
+    if (isFirst) {
+      if (!emailish(p.email)) flag(k + '-email', s.role + ' needs a working email address.');
+    } else if (p.email && !emailish(p.email)) {
+      flag(k + '-email', 'That email does not look right.');
+    }
   }
   return { problems: problems, firstBad: firstBad };
 }
@@ -634,8 +803,6 @@ $('form').addEventListener('submit', function (e) {
   var d = collect();
   var v = validate(d);
   if (v.problems.length) {
-    /* Short summary for a screen reader; the detail is already beside each
-       field, which is where the eye lands after the scroll. */
     $('err').textContent = v.problems.length === 1 ? v.problems[0]
       : v.problems.length + ' things need fixing. Each one is marked below.';
     if (v.firstBad && v.firstBad.scrollIntoView) {
@@ -657,7 +824,7 @@ $('form').addEventListener('submit', function (e) {
       $('draft-note').classList.remove('shown');
       $('done').hidden = false;
       $('done-sub').textContent = 'We have the registration for ' + d.team_name +
-        '. A copy is on its way to ' + (d.players[0] || {}).email + '.';
+        '. A copy is on its way to ' + ((d.players[0] || {}).email || 'you') + '.';
       $('done').scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
@@ -674,11 +841,6 @@ $('form').addEventListener('submit', function (e) {
     $('go').disabled = false;
     $('go').textContent = 'Submit registration';
   });
-});
-
-$('again').addEventListener('click', function () {
-  clearDraft();
-  location.reload();
 });
 </script>
 </body>

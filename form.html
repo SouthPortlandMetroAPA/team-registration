@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Team Registration &middot; South Portland Metro APA</title>
+<meta name="description" content="Register your South Portland Metro APA team for the upcoming session.">
+<meta name="robots" content="noindex">
+<!--
+================================================================================
+Team Registration Form - form.html  (public, captain-facing)
+================================================================================
+PURPOSE
+  A captain fills in the same fields as the paper APA Team Registration Form and
+  presses Submit. The completed form is EMAILED to the league. Nothing else
+  happens: there is no login, no database write, and no member lookup.
+
+WHY IT IS DELIBERATELY DUMB
+  The older app in this same repo (index.html) authenticated captains and built
+  rosters out of player_full, a view over Nexus-exported member data. That is
+  exactly what the APA Nationals directive forbids, and on 2026-11-13 the whole
+  teamreg schema was found readable AND writable by anon. Grants were revoked, so
+  index.html now returns 401 on every call. This page is the replacement path and
+  it touches none of that: every value comes from the captain's keyboard.
+
+DEPENDENCIES
+  - GAS mailer (tools/claude/rolodex-mailer/Code.gs), ONE action: treg_submit
+  - Nothing else. No Supabase key is present in this file, by design. Grep for
+    "eyJ" here and you should find nothing.
+
+DATA FLOW
+  browser --POST text/plain--> GAS treg_submit --> safeMailSend
+      -> league inbox : the full form, reply-to the captain
+      -> captain      : a receipt, team and roster NAMES only. Teammate
+                        addresses and phone numbers are not mailed back out.
+
+PRECONDITIONS THAT WILL BITE YOU
+  1. Browser -> GAS must be Content-Type text/plain. application/json triggers a
+     CORS preflight Apps Script cannot answer. GAS parses the raw body anyway.
+  2. There is NO stored copy. If the send fails, the submission is gone, so the
+     failure path keeps every field filled and says so out loud. Do not "tidy"
+     that by clearing the form on error.
+  3. SESSION_NAME / DEADLINE / SESSION_STARTS below are plain constants. Edit
+     them each session. They are not read from a database on purpose: this page
+     must keep working even if every backend is down.
+  4. No version.js polling here. A static form has no stale view to refresh, and
+     an auto-reload mid-typing would destroy a half-filled roster.
+
+BRANDING
+  Light theme, APA red #ea002a + blue #0031a1, matching MultiPass / PatchCheck /
+  SharpShooters. Tokens are inlined deliberately - validate-ui-brand.mjs requires
+  the literal values in the file and does not accept a comment or a bare link.
+================================================================================
+-->
+<style>
+/* -- SPM shared base (inlined from Apps/shared/spm-base.css) ------------- */
+:root{
+  --spm-primary:#ea002a;
+  --spm-accent:#0031a1;
+  --bg:#f5f5f5;
+  --card:#ffffff;
+  --border:#e1e1e1;
+  --text:#1f1f1f;
+  --muted:#666;
+  --ok-bg:#e8f0fe;
+  --ok-border:#afc6f0;
+  --ok-text:#1a3b6b;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;width:100%;background:var(--bg);color:var(--text);
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-size:16px;line-height:1.5;-webkit-text-size-adjust:100%}
+
+.spm-page{width:100%;max-width:900px;margin:0 auto;padding:12px}
+@media(min-width:768px){.spm-page{padding:16px 20px}}
+@media(min-width:1200px){.spm-page{padding:20px 30px}}
+
+.spm-header{border-radius:22px;padding:22px 20px 20px;color:#fff;
+  background:linear-gradient(135deg,var(--spm-primary),var(--spm-accent));
+  box-shadow:0 6px 18px rgba(0,0,0,.25);text-align:center;margin-bottom:18px}
+.spm-header h1{margin:0;font-size:clamp(1.25rem,1rem + 1.5vw,1.75rem);font-weight:900;letter-spacing:-.02em}
+.spm-header .spm-subtitle{margin:4px 0 0;font-size:clamp(1rem,.75rem + 1vw,1.35rem);
+  font-weight:500;font-style:italic;opacity:.92}
+
+.spm-card{background:var(--card);border:1px solid var(--border);border-radius:22px;
+  padding:20px;box-shadow:0 3px 10px rgba(0,0,0,.1);margin-bottom:16px}
+
+.spm-btn{display:inline-block;border:none;border-radius:999px;padding:12px 24px;font-weight:700;
+  font-size:1rem;cursor:pointer;text-decoration:none;text-align:center;min-height:44px;
+  transition:filter .15s,transform .15s;font-family:inherit}
+.spm-btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.spm-btn:active{transform:translateY(0)}
+.spm-btn:disabled{opacity:.55;cursor:default;transform:none;filter:none}
+.spm-btn-primary{background:linear-gradient(135deg,var(--spm-primary),var(--spm-accent));color:#fff}
+.spm-btn-secondary{background:#fff;color:var(--text);border:2px solid var(--border)}
+
+.spm-footer{text-align:center;font-size:.8rem;color:var(--muted);padding:24px 0 16px}
+
+/* -- Page specific ------------------------------------------------------ */
+h2.sec{margin:0 0 4px;font-size:1.1rem;font-weight:800;letter-spacing:-.01em}
+p.sec-sub{margin:0 0 16px;font-size:.9rem;color:var(--muted)}
+
+.field{margin:0 0 14px;text-align:left}
+.field label{display:block;font-weight:700;font-size:.9rem;margin-bottom:5px}
+.field input,.field textarea{width:100%;padding:12px 14px;font-size:1rem;font-family:inherit;
+  color:var(--text);background:#fff;border:2px solid var(--border);border-radius:12px;min-height:46px}
+.field textarea{min-height:70px;resize:vertical}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--spm-accent)}
+.field input.bad,.field textarea.bad{border-color:var(--spm-primary);background:#fff6f7}
+.req{color:var(--spm-primary)}
+.hint{margin:5px 0 0;font-size:.8rem;color:var(--muted)}
+
+/* Two-up on a wide screen, stacked on a phone. */
+.row2{display:grid;gap:0 14px}
+@media(min-width:620px){.row2{grid-template-columns:1fr 1fr}}
+
+/* Radio pills. The whole pill is the tap target, 44px minimum. */
+.pills{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 6px}
+.pill{position:relative}
+.pill input{position:absolute;opacity:0;width:1px;height:1px}
+.pill span{display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;
+  border:2px solid var(--border);border-radius:999px;background:#fff;font-weight:700;
+  font-size:.95rem;cursor:pointer;user-select:none;transition:background .12s,border-color .12s,color .12s}
+.pill input:checked + span{background:linear-gradient(135deg,var(--spm-primary),var(--spm-accent));
+  border-color:transparent;color:#fff}
+.pill input:focus-visible + span{outline:3px solid var(--spm-accent);outline-offset:2px}
+.pills.bad .pill span{border-color:var(--spm-primary)}
+
+/* One player = one bordered block, never a table. A 4-column table is unusable
+   on a phone, and a phone is where most captains will fill this in. */
+.plr{border:1px solid var(--border);border-radius:16px;padding:14px;margin:0 0 12px;background:#fcfcfc}
+.plr.key{background:var(--ok-bg);border-color:var(--ok-border)}
+.plr-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 0 12px}
+.plr-num{font-weight:800;font-size:.95rem}
+.plr-role{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+.plr .field:last-child{margin-bottom:0}
+
+.notice{margin:0 0 16px;padding:13px 15px;border-radius:14px;background:#fdf3e0;
+  border:1px solid #e8cf9a;border-left:5px solid #c98a00;color:#7a5500;
+  font-size:.9rem;font-weight:600;line-height:1.5}
+.notice b{font-weight:800;color:#5e4200}
+.notice a{color:#5e4200}
+
+.info{margin:0 0 16px;padding:13px 15px;border-radius:14px;background:var(--ok-bg);
+  border:1px solid var(--ok-border);color:var(--ok-text);font-size:.9rem;line-height:1.5}
+.info b{font-weight:800}
+
+.err{margin:0 0 14px;color:var(--spm-primary);font-weight:700;font-size:.95rem;text-align:left;
+  padding:12px 14px;border:2px solid var(--spm-primary);border-radius:12px;background:#fff6f7}
+.err:empty{display:none;padding:0;border:none}
+
+.submit-wrap{text-align:center;padding:4px 0 8px}
+.submit-wrap .spm-btn{width:100%;max-width:360px;font-size:1.05rem;padding:15px 24px}
+
+/* Honeypot. Hidden from people, not from a naive bot. Not a rate limit:
+   nobody real is ever slowed down by it. */
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+
+.done{text-align:center;padding:10px 4px}
+.done h2{margin:0 0 10px;font-size:1.3rem;font-weight:800}
+.done p{margin:0 0 14px;color:var(--muted)}
+.done .tick{font-size:3rem;line-height:1;margin:0 0 10px}
+</style>
+</head>
+<body>
+
+<div class="spm-page">
+
+  <header class="spm-header">
+    <h1>Team Registration Form</h1>
+    <p class="spm-subtitle" id="hdr-session">South Portland Metro APA</p>
+  </header>
+
+  <!-- ===================== THE FORM ===================== -->
+  <form id="form" novalidate>
+
+    <section class="spm-card">
+      <h2 class="sec">When and what</h2>
+      <p class="sec-sub">Pick the night you play and the format you are registering for.</p>
+
+      <div class="field">
+        <label id="lbl-day">Day of play <span class="req">*</span></label>
+        <div class="pills" id="days" role="radiogroup" aria-labelledby="lbl-day"></div>
+      </div>
+
+      <div class="field">
+        <label id="lbl-fmt">Format <span class="req">*</span></label>
+        <div class="pills" id="fmts" role="radiogroup" aria-labelledby="lbl-fmt"></div>
+        <p class="hint" id="fmt-hint">Double Jeopardy teams play 8-Ball and 9-Ball on the same night.</p>
+      </div>
+
+      <div class="row2">
+        <div class="field">
+          <label for="f-div">Division <span class="req">*</span></label>
+          <input id="f-div" name="division" maxlength="80" autocomplete="off">
+          <p class="hint">If you are not sure, put the day and time you play.</p>
+        </div>
+        <div class="field">
+          <label for="f-ref">Referred by</label>
+          <input id="f-ref" name="referred_by" maxlength="80" autocomplete="off">
+          <p class="hint">Optional. Who sent you our way?</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="spm-card">
+      <h2 class="sec">Your team</h2>
+      <p class="sec-sub">The name you want on the schedule and the standings.</p>
+      <div class="field">
+        <label for="f-team">Team name <span class="req">*</span></label>
+        <input id="f-team" name="team_name" maxlength="80" autocomplete="off">
+      </div>
+    </section>
+
+    <section class="spm-card">
+      <h2 class="sec">Host location</h2>
+      <p class="sec-sub">Where your team plays its home matches.</p>
+      <div class="field">
+        <label for="f-host">Host location name <span class="req">*</span></label>
+        <input id="f-host" name="host_name" maxlength="100" autocomplete="off">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="f-hostaddr">Host location address</label>
+          <input id="f-hostaddr" name="host_address" maxlength="160" autocomplete="off">
+          <p class="hint">Required for a new location. Include the zip code.</p>
+        </div>
+        <div class="field">
+          <label for="f-hostphone">Host location phone</label>
+          <input id="f-hostphone" name="host_phone" type="tel" inputmode="tel" maxlength="30" autocomplete="off">
+          <p class="hint">Required for a new location.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="spm-card">
+      <h2 class="sec">Roster</h2>
+      <p class="sec-sub">First and last names, please. Only the captain is required, so add whoever you have today and tell us the rest later.</p>
+
+      <div class="info">
+        <b>No APA number yet?</b> Leave it blank for any brand new player and we will
+        take care of it. Everyone else: all 8 digits from your card.
+      </div>
+
+      <div id="roster"></div>
+
+      <div style="text-align:center">
+        <button type="button" class="spm-btn spm-btn-secondary" id="add-plr">Add another player</button>
+      </div>
+    </section>
+
+    <section class="spm-card">
+      <div class="notice" id="deposit">
+        <b>Team deposit:</b> a <b id="dep-amt">$45</b> deposit is strongly suggested, and it
+        pre-pays your last week of team fees so nobody is scrambling on the final night.
+      </div>
+      <div class="info">
+        <b>Get ahead of the game.</b> Have your teammates pay their member dues online at
+        <a href="https://www.poolplayers.com" target="_blank" rel="noopener">poolplayers.com</a>
+        before the first night of play, and avoid the chaos.
+      </div>
+      <p class="hint" id="deadline-line" style="text-align:center;font-weight:700;font-size:.95rem;color:var(--text)"></p>
+    </section>
+
+    <!-- Bots fill every field they can see. People never see this one. -->
+    <div class="hp" aria-hidden="true">
+      <label for="f-hp">Leave this blank</label>
+      <input id="f-hp" name="spm_leave_blank" tabindex="-1" autocomplete="off">
+    </div>
+
+    <p class="err" id="err" role="alert" aria-live="assertive"></p>
+
+    <div class="submit-wrap">
+      <button type="submit" class="spm-btn spm-btn-primary" id="go">Submit registration</button>
+      <p class="hint" id="go-hint">This emails your form straight to the league office.</p>
+    </div>
+  </form>
+
+  <!-- ===================== AFTER SUBMIT ===================== -->
+  <section class="spm-card done" id="done" hidden>
+    <p class="tick">&#127881;</p>
+    <h2>You are registered</h2>
+    <p id="done-sub"></p>
+    <button type="button" class="spm-btn spm-btn-secondary" id="again">Register another team</button>
+  </section>
+
+  <p class="spm-footer">
+    South Portland Metro APA &middot; Questions?
+    <a href="mailto:southportlandmetroapa@gmail.com" style="color:var(--spm-primary);font-weight:700">email us</a>
+  </p>
+</div>
+
+<script>
+/* ========================================================================
+   EDIT THESE EACH SESSION. Nothing else on this page needs touching.
+   Leave a date blank and its line simply does not appear, which is better
+   than showing a stale deadline that has already passed.
+   ====================================================================== */
+var SESSION_NAME   = 'Spring 2027';
+var DEADLINE       = '';   /* e.g. 'December 15, 2026' */
+var SESSION_STARTS = '';   /* e.g. 'January 5, 2027'   */
+
+var GAS = "https://script.google.com/macros/s/AKfycbzGTzkBRTrIIP_tD6sbtOOUmNZkXDdtxPoO4c8fdWt5h3tZFueNSISPv8Q3LWStx73Whw/exec";
+
+var DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Sat', 'Sun'];
+var FORMATS = [
+  { key: '8-Ball',          deposit: 45 },
+  { key: '9-Ball',          deposit: 45 },
+  { key: 'Double Jeopardy', deposit: 90 }
+];
+var ROSTER_START = 8;    /* the paper form has 8 lines */
+var ROSTER_MAX   = 12;
+var DRAFT_KEY    = 'treg_draft_v1';
+
+var $ = function (id) { return document.getElementById(id); };
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/* ---- header / notices --------------------------------------------- */
+$('hdr-session').textContent = SESSION_NAME;
+document.title = 'Team Registration ' + SESSION_NAME + ' · South Portland Metro APA';
+(function () {
+  var bits = [];
+  if (DEADLINE) bits.push('Registration deadline: ' + DEADLINE);
+  if (SESSION_STARTS) bits.push('Session begins the week of ' + SESSION_STARTS);
+  $('deadline-line').textContent = bits.join('  ·  ');
+})();
+
+/* ---- day + format pills -------------------------------------------- */
+function pill(group, value, label) {
+  return '<label class="pill"><input type="radio" name="' + group + '" value="' + esc(value) + '">' +
+         '<span>' + esc(label) + '</span></label>';
+}
+$('days').innerHTML = DAYS.map(function (d) { return pill('day', d, d); }).join('');
+$('fmts').innerHTML = FORMATS.map(function (f) { return pill('format', f.key, f.key); }).join('');
+
+/* The suggested deposit follows the format, the way the paper form does. */
+function syncDeposit() {
+  var sel = document.querySelector('input[name=format]:checked');
+  var f = null, i;
+  for (i = 0; i < FORMATS.length; i++) if (sel && FORMATS[i].key === sel.value) f = FORMATS[i];
+  $('dep-amt').textContent = '$' + (f ? f.deposit : 45);
+}
+$('fmts').addEventListener('change', function () { syncDeposit(); saveDraft(); });
+
+/* ---- roster --------------------------------------------------------- */
+function roleOf(i) { return i === 0 ? 'Team captain' : (i === 1 ? 'Co-captain' : ''); }
+
+function playerBlock(i) {
+  var role = roleOf(i);
+  var star = i === 0 ? ' <span class="req">*</span>' : '';
+  var needEmail = i < 2;
+  var h = '';
+  h += '<div class="plr' + (i < 2 ? ' key' : '') + '" data-i="' + i + '">';
+  h += '  <div class="plr-head"><span class="plr-num">Player ' + (i + 1) + '</span>' +
+       (role ? '<span class="plr-role">' + role + '</span>' : '') + '</div>';
+  h += '  <div class="field"><label for="p' + i + '-name">Full name' + star + '</label>' +
+       '<input id="p' + i + '-name" data-f="name" maxlength="80" autocomplete="off"></div>';
+  h += '  <div class="row2">';
+  h += '    <div class="field"><label for="p' + i + '-apa">APA number' + star + '</label>' +
+       '<input id="p' + i + '-apa" data-f="apa" inputmode="numeric" maxlength="8" placeholder="8 digits" autocomplete="off"></div>';
+  h += '    <div class="field"><label for="p' + i + '-phone">Phone' + star + '</label>' +
+       '<input id="p' + i + '-phone" data-f="phone" type="tel" inputmode="tel" maxlength="30" autocomplete="off"></div>';
+  h += '  </div>';
+  h += '  <div class="field"><label for="p' + i + '-addr">Address' + star + '</label>' +
+       '<input id="p' + i + '-addr" data-f="addr" maxlength="160" autocomplete="off"></div>';
+  if (needEmail) {
+    h += '  <div class="field"><label for="p' + i + '-email">Email' + star + '</label>' +
+         '<input id="p' + i + '-email" data-f="email" type="email" inputmode="email" maxlength="120" autocomplete="off">' +
+         '<p class="hint">' + (i === 0
+            ? 'Your copy of this form goes here. Electronic divisions need it.'
+            : 'Optional, but handy when the captain cannot be reached.') + '</p></div>';
+  }
+  h += '</div>';
+  return h;
+}
+
+function renderRoster(n) {
+  var h = '', i;
+  for (i = 0; i < n; i++) h += playerBlock(i);
+  $('roster').innerHTML = h;
+}
+renderRoster(ROSTER_START);
+
+$('add-plr').addEventListener('click', function () {
+  var blocks = $('roster').querySelectorAll('.plr');
+  if (blocks.length >= ROSTER_MAX) { this.disabled = true; return; }
+  $('roster').insertAdjacentHTML('beforeend', playerBlock(blocks.length));
+  if (blocks.length + 1 >= ROSTER_MAX) this.disabled = true;
+  var added = $('roster').lastElementChild;
+  if (added) added.querySelector('input').focus();
+});
+
+/* APA numbers are digits only. Strip anything else as it is typed so a
+   dash or a space never becomes a validation error the captain cannot see. */
+$('roster').addEventListener('input', function (e) {
+  if (e.target && e.target.getAttribute('data-f') === 'apa') {
+    var v = e.target.value.replace(/\D/g, '').slice(0, 8);
+    if (v !== e.target.value) e.target.value = v;
+  }
+});
+
+/* ---- draft autosave -------------------------------------------------
+   A roster is a long form and a mis-tap on a phone should not cost the
+   captain twenty minutes. The draft lives only in THIS browser, and it is
+   wiped the moment the form is accepted.                                */
+function collect() {
+  var selDay = document.querySelector('input[name=day]:checked');
+  var selFmt = document.querySelector('input[name=format]:checked');
+  var players = [], blocks = $('roster').querySelectorAll('.plr'), i;
+  for (i = 0; i < blocks.length; i++) {
+    var b = blocks[i];
+    var g = function (f) { var el = b.querySelector('[data-f=' + f + ']'); return el ? el.value.trim() : ''; };
+    players.push({ name: g('name'), apa: g('apa'), phone: g('phone'), addr: g('addr'), email: g('email') });
+  }
+  return {
+    session: SESSION_NAME,
+    day: selDay ? selDay.value : '',
+    format: selFmt ? selFmt.value : '',
+    division: $('f-div').value.trim(),
+    referred_by: $('f-ref').value.trim(),
+    team_name: $('f-team').value.trim(),
+    host_name: $('f-host').value.trim(),
+    host_address: $('f-hostaddr').value.trim(),
+    host_phone: $('f-hostphone').value.trim(),
+    players: players,
+    spm_leave_blank: $('f-hp').value
+  };
+}
+
+var saveTimer = null;
+function saveDraft() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(function () {
+    try { localStorage.setItem(DRAFT_KEY, JSON.stringify(collect())); } catch (e) {}
+  }, 400);
+}
+function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+
+function restoreDraft() {
+  var raw = null;
+  try { raw = localStorage.getItem(DRAFT_KEY); } catch (e) {}
+  if (!raw) return;
+  var d;
+  try { d = JSON.parse(raw); } catch (e) { return; }
+  if (!d || d.session !== SESSION_NAME) { clearDraft(); return; }
+
+  var setRadio = function (group, v) {
+    if (!v) return;
+    var el = document.querySelector('input[name=' + group + '][value="' + v + '"]');
+    if (el) el.checked = true;
+  };
+  setRadio('day', d.day);
+  setRadio('format', d.format);
+  $('f-div').value = d.division || '';
+  $('f-ref').value = d.referred_by || '';
+  $('f-team').value = d.team_name || '';
+  $('f-host').value = d.host_name || '';
+  $('f-hostaddr').value = d.host_address || '';
+  $('f-hostphone').value = d.host_phone || '';
+
+  var saved = d.players || [];
+  if (saved.length > ROSTER_START) renderRoster(Math.min(saved.length, ROSTER_MAX));
+  var blocks = $('roster').querySelectorAll('.plr'), i;
+  for (i = 0; i < blocks.length && i < saved.length; i++) {
+    var b = blocks[i], p = saved[i] || {};
+    var put = function (f, v) { var el = b.querySelector('[data-f=' + f + ']'); if (el) el.value = v || ''; };
+    put('name', p.name); put('apa', p.apa); put('phone', p.phone);
+    put('addr', p.addr); put('email', p.email);
+  }
+  syncDeposit();
+}
+restoreDraft();
+$('form').addEventListener('input', saveDraft);
+
+/* ---- validation ------------------------------------------------------
+   Client side only to be KIND. The same rules run again on the server,
+   because a form that validates only in the browser validates nowhere.  */
+function mark(el, bad) {
+  if (!el) return;
+  if (bad) el.classList.add('bad'); else el.classList.remove('bad');
+}
+function digits(s) { return String(s || '').replace(/\D/g, ''); }
+function emailish(s) { return /^[^@\s]+@[^@\s.]+\.[^@\s]+$/.test(String(s || '')); }
+
+function validate(d) {
+  var problems = [], firstBad = null;
+  var need = function (el, cond, msg) {
+    mark(el, !cond);
+    if (!cond) { problems.push(msg); if (!firstBad) firstBad = el; }
+  };
+
+  if (d.day) { $('days').classList.remove('bad'); }
+  else { $('days').classList.add('bad'); problems.push('Pick the day you play.'); firstBad = firstBad || $('days'); }
+  if (d.format) { $('fmts').classList.remove('bad'); }
+  else { $('fmts').classList.add('bad'); problems.push('Pick a format.'); firstBad = firstBad || $('fmts'); }
+
+  need($('f-div'),  !!d.division,  'Tell us the division, or the day and time you play.');
+  need($('f-team'), !!d.team_name, 'Your team needs a name.');
+  need($('f-host'), !!d.host_name, 'Tell us the host location.');
+
+  var blocks = $('roster').querySelectorAll('.plr');
+  var cap = blocks[0];
+  var capEl = function (f) { return cap ? cap.querySelector('[data-f=' + f + ']') : null; };
+  var c = d.players[0] || {};
+  need(capEl('name'),  !!c.name,  'The captain needs a full name.');
+  need(capEl('apa'),   digits(c.apa).length === 8, 'The captain needs an 8 digit APA number.');
+  need(capEl('phone'), digits(c.phone).length >= 10, 'The captain needs a phone number.');
+  need(capEl('addr'),  !!c.addr,  'The captain needs an address.');
+  need(capEl('email'), emailish(c.email), 'The captain needs a working email address.');
+
+  /* Everybody else is optional, but a partly filled line is a typo, not a
+     choice. Catch it here rather than letting the office chase it later. */
+  var i, f;
+  var FIELDS = ['name', 'apa', 'phone', 'addr', 'email'];
+  for (i = 1; i < d.players.length; i++) {
+    var p = d.players[i], b = blocks[i];
+    if (!b) continue;
+    var any = p.name || p.apa || p.phone || p.addr || p.email;
+    if (!any) {
+      for (f = 0; f < FIELDS.length; f++) mark(b.querySelector('[data-f=' + FIELDS[f] + ']'), false);
+      continue;
+    }
+    need(b.querySelector('[data-f=name]'), !!p.name, 'Player ' + (i + 1) + ' needs a full name.');
+    need(b.querySelector('[data-f=apa]'), !p.apa || digits(p.apa).length === 8,
+         'Player ' + (i + 1) + ' has an APA number that is not 8 digits. Leave it blank for a brand new player.');
+    var emEl = b.querySelector('[data-f=email]');
+    if (emEl && p.email) need(emEl, emailish(p.email), 'Player ' + (i + 1) + ' has an email address that does not look right.');
+  }
+  return { problems: problems, firstBad: firstBad };
+}
+
+/* ---- submit ----------------------------------------------------------
+   Browser -> GAS must be text/plain. application/json triggers a CORS
+   preflight Apps Script cannot answer; GAS parses the raw body anyway.  */
+function post(payload) {
+  return fetch(GAS, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(payload),
+    redirect: 'follow'
+  }).then(function (r) { return r.json(); });
+}
+
+var sending = false;
+$('form').addEventListener('submit', function (e) {
+  e.preventDefault();
+  if (sending) return;
+
+  var d = collect();
+  var v = validate(d);
+  if (v.problems.length) {
+    $('err').innerHTML = (v.problems.length === 1 ? '' : 'Please fix these:<br>') +
+      v.problems.map(esc).join('<br>');
+    if (v.firstBad && v.firstBad.scrollIntoView) {
+      v.firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (v.firstBad.focus) { try { v.firstBad.focus({ preventScroll: true }); } catch (err) {} }
+    }
+    return;
+  }
+
+  $('err').textContent = '';
+  sending = true;
+  $('go').disabled = true;
+  $('go').textContent = 'Sending…';
+
+  d.action = 'treg_submit';
+  post(d).then(function (res) {
+    if (res && res.ok) {
+      clearDraft();
+      $('form').hidden = true;
+      $('done').hidden = false;
+      $('done-sub').textContent = 'We have the registration for ' + d.team_name +
+        '. A copy is on its way to ' + (d.players[0] || {}).email + '.';
+      $('done').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
+    throw new Error((res && res.error) || 'We could not send your form.');
+  })['catch'](function (ex) {
+    /* Nothing is stored anywhere, so the form stays exactly as typed.
+       Never clear it here. */
+    $('err').innerHTML = esc(ex.message || 'We could not send your form.') +
+      '<br>Nothing you typed was lost. Press Submit again in a moment, or email it to ' +
+      '<a href="mailto:southportlandmetroapa@gmail.com" style="color:inherit">southportlandmetroapa@gmail.com</a>.';
+    $('err').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }).then(function () {
+    sending = false;
+    $('go').disabled = false;
+    $('go').textContent = 'Submit registration';
+  });
+});
+
+$('again').addEventListener('click', function () {
+  clearDraft();
+  location.reload();
+});
+</script>
+</body>
+</html>

@@ -28,8 +28,10 @@ DEPENDENCIES
   - Nothing else. No Supabase key is present in this file, by design. Grep for
     "eyJ" here and you should find nothing.
 
-DATA FLOW
-  browser --POST text/plain--> GAS treg_submit --> safeMailSend
+DATA FLOW   (no arrow below may be written as a double dash plus a closing
+             angle bracket: that sequence ENDS an HTML comment and dumps this
+             whole block onto the page as visible text. It did, once.)
+  browser  -POST text/plain->  GAS treg_submit  ->  safeMailSend
       -> league inbox : the full form, reply-to the captain
       -> captain      : a receipt, team and roster NAMES only. Teammate
                         addresses and phone numbers are not mailed back out.

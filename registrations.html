@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Team Registrations</title>
+<title>South Portland Metro APA</title>
 <meta name="robots" content="noindex,nofollow">
 <!--
 ================================================================================
@@ -191,7 +191,14 @@ function esc(s) {
 }
 var qs = new URLSearchParams(location.search);
 if (!qs.has('admin')) { /* stay behind the curtain */ }
-else { $('curtain').hidden = true; $('app').hidden = false; }
+else {
+  $('curtain').hidden = true;
+  $('app').hidden = false;
+  /* The <title> is neutral in the markup and only named here. A curtain that
+     leaves "Team Registrations" in the tab, the history and every screenshot
+     is not a curtain. */
+  document.title = 'Team Registrations';
+}
 
 /* Browser -> GAS must be text/plain. application/json triggers a CORS
    preflight Apps Script cannot answer; GAS parses the raw body anyway. */

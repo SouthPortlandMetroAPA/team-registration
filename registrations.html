@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Team Registrations</title>
+<meta name="robots" content="noindex,nofollow">
+<!--
+================================================================================
+Team Registrations - registrations.html  (operator admin)
+================================================================================
+PURPOSE
+  View and work the team registrations that form.html collects. Modelled on
+  Apps/Multipass/site/admin.html, deliberately: same sign-in shape, same
+  curtain, same token discipline.
+
+SECURITY, AND WHAT ?admin=1 IS NOT
+  ?admin=1 REVEALS THE UI AND GATES NOTHING. It is a curtain so a stray
+  visitor sees an ordinary page instead of a console. Every action re-checks
+  its own token SERVER SIDE in Code.gs; removing the curtain would change
+  nothing about what a stranger can read.
+
+  NO SUPABASE KEY LIVES IN THIS PAGE. The teamform schema grants anon nothing
+  and revokes USAGE, so even a leaked anon key reaches no row. Everything goes
+  through the GAS endpoint, which holds the service key.
+
+  The sign-in link can only ever be mailed to the hardcoded operator address,
+  so "holds a valid session" and "is the operator" are the same statement.
+  Tokens are signed with 'teamform' inside the payload and their own kinds
+  (TL / TS), so a MultiPass admin session cannot be replayed here.
+
+DEPENDENCIES
+  GAS mailer (tools/claude/rolodex-mailer/Code.gs), actions:
+    tfa_link_request / tfa_verify / tfa_data / tfa_set / tfa_delete
+
+PRECONDITIONS THAT WILL BITE YOU
+  1. Browser -> GAS must be Content-Type text/plain. application/json triggers
+     a CORS preflight Apps Script cannot answer.
+  2. The session token lives in localStorage and expires after 8 hours. An
+     expired token must send the operator back to sign-in, not to a blank
+     screen: handleAuthFail covers every call.
+  3. Deleting a registration cascades its people rows and cannot be undone.
+     The confirm names the team, because "are you sure?" is not a safeguard.
+
+BRANDING
+  Light theme, APA red #ea002a + blue #0031a1, matching form.html and the rest
+  of the fleet. Tokens are inlined deliberately - validate-ui-brand.mjs requires
+  the literal values in the file.
+================================================================================
+-->
+<style>
+:root{
+  --spm-primary:#ea002a;
+  --spm-accent:#0031a1;
+  --bg:#f5f5f5;
+  --card:#ffffff;
+  --border:#e1e1e1;
+  --text:#1f1f1f;
+  --muted:#666;
+  --ok-bg:#e8f0fe;
+  --ok-border:#afc6f0;
+  --ok-text:#1a3b6b;
+  --field-border:#878787;
+  --err-text:#c8001f;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-size:16px;line-height:1.45}
+.page{max-width:1180px;margin:0 auto;padding:12px}
+@media(min-width:768px){.page{padding:18px 22px}}
+
+.hdr{border-radius:18px;padding:16px 18px;color:#fff;margin-bottom:14px;
+  background:linear-gradient(135deg,var(--spm-primary),var(--spm-accent));
+  box-shadow:0 6px 18px rgba(0,0,0,.25);display:flex;flex-wrap:wrap;
+  align-items:center;justify-content:space-between;gap:10px}
+.hdr h1{margin:0;font-size:1.25rem;font-weight:900;letter-spacing:-.02em}
+.hdr .sub{margin:2px 0 0;font-size:.85rem;opacity:.9}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:18px;
+  padding:16px;box-shadow:0 3px 10px rgba(0,0,0,.08);margin-bottom:14px}
+
+.btn{display:inline-block;border:none;border-radius:999px;padding:10px 18px;font-weight:700;
+  font-size:.92rem;cursor:pointer;text-align:center;min-height:44px;font-family:inherit;
+  transition:filter .15s,transform .15s}
+.btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.btn:disabled{opacity:.5;cursor:default;transform:none}
+.btn:focus-visible{outline:3px solid var(--spm-accent);outline-offset:3px}
+.btn-primary{background:linear-gradient(135deg,var(--spm-primary),var(--spm-accent));color:#fff}
+.btn-ghost{background:#fff;color:var(--text);border:2px solid var(--field-border)}
+.btn-danger{background:#fff;color:var(--err-text);border:2px solid var(--spm-primary)}
+.btn-sm{padding:7px 14px;font-size:.83rem;min-height:40px}
+.hdr .btn-ghost{border-color:rgba(255,255,255,.75);background:transparent;color:#fff}
+
+input,select,textarea{font-family:inherit;font-size:.95rem;color:var(--text);background:#fff;
+  border:2px solid var(--field-border);border-radius:10px;padding:9px 11px;min-height:44px;width:100%}
+input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--spm-accent);outline-offset:2px}
+label{display:block;font-weight:700;font-size:.85rem;margin-bottom:4px}
+
+.toolbar{display:grid;gap:10px}
+@media(min-width:768px){.toolbar{grid-template-columns:1fr 1fr 2fr auto;align-items:end}}
+
+.tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+.tab{border:2px solid var(--field-border);background:#fff;border-radius:999px;padding:0 16px;
+  min-height:44px;font-weight:700;font-size:.88rem;cursor:pointer;font-family:inherit;color:var(--text)}
+.tab.on{background:linear-gradient(135deg,var(--spm-primary),var(--spm-accent));border-color:transparent;color:#fff}
+.tab:focus-visible{outline:3px solid var(--spm-accent);outline-offset:3px}
+
+.reg{border:1px solid var(--border);border-radius:16px;padding:14px;margin:0 0 12px;background:#fff}
+.reg.is-new{border-left:6px solid var(--spm-primary)}
+.reg.is-accepted{border-left:6px solid #1a7f37;background:#f6fbf7}
+.reg.is-declined{border-left:6px solid var(--muted);background:#fafafa;opacity:.78}
+.reg.is-test{border-style:dashed}
+.reg-top{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;margin:0 0 8px}
+.reg-team{font-size:1.05rem;font-weight:800;letter-spacing:-.01em}
+.reg-when{font-size:.8rem;color:var(--muted);margin-left:auto}
+.pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.72rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.04em}
+.pill-new{background:var(--spm-primary);color:#fff}
+.pill-accepted{background:#1a7f37;color:#fff}
+.pill-declined{background:var(--muted);color:#fff}
+.pill-test{background:#7a5500;color:#fff}
+.pill-fmt{background:var(--ok-bg);color:var(--ok-text);border:1px solid var(--ok-border)}
+
+.meta{display:grid;grid-template-columns:auto minmax(0,1fr);gap:3px 10px;font-size:.88rem;margin:0 0 10px}
+.meta dt{color:var(--muted);font-size:.74rem;text-transform:uppercase;letter-spacing:.05em;padding-top:2px;white-space:nowrap}
+.meta dd{margin:0;overflow-wrap:anywhere}
+
+.ppl{display:grid;gap:8px;margin:0 0 10px}
+@media(min-width:620px){.ppl{grid-template-columns:1fr 1fr}}
+.p{border:1px solid var(--border);border-radius:11px;padding:9px 11px;background:#fcfcfc;font-size:.88rem}
+.p.lead{background:var(--ok-bg);border-color:var(--ok-border)}
+.p-role{font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:800}
+.p-name{font-weight:800}
+.p-row{color:var(--muted);overflow-wrap:anywhere}
+.p-row a{color:var(--spm-accent)}
+.side-tag{font-size:.7rem;font-weight:800;color:var(--spm-primary);text-transform:uppercase;letter-spacing:.05em}
+
+.acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-top:10px;border-top:1px solid var(--border)}
+.acts .grow{flex:1 1 180px}
+.note-row{display:flex;gap:8px;align-items:center;width:100%;margin-top:8px}
+.note-row input{min-height:40px}
+
+.state{text-align:center;color:var(--muted);padding:40px 16px}
+.err{margin:0 0 12px;color:var(--err-text);font-weight:700;font-size:.9rem;
+  padding:11px 13px;border:2px solid var(--spm-primary);border-radius:12px;background:#fff6f7}
+.err:empty{display:none;padding:0;border:none}
+.okmsg{margin:0 0 12px;color:var(--ok-text);font-weight:700;font-size:.9rem;
+  padding:11px 13px;border:1px solid var(--ok-border);border-radius:12px;background:var(--ok-bg)}
+.okmsg:empty{display:none;padding:0;border:none}
+.muted{color:var(--muted);font-size:.85rem}
+
+.signin{max-width:460px;margin:8vh auto;text-align:center}
+.signin h2{margin:0 0 8px;font-size:1.2rem}
+.signin p{color:var(--muted);font-size:.92rem}
+.curtain{max-width:460px;margin:12vh auto;text-align:center;color:var(--muted)}
+</style>
+</head>
+<body>
+
+<!-- Curtain: without ?admin=1 the page says nothing about what it is. -->
+<div class="curtain" id="curtain">
+  <p>South Portland Metro APA</p>
+</div>
+
+<div class="page" id="app" hidden>
+
+  <div class="hdr">
+    <div>
+      <h1>Team Registrations</h1>
+      <p class="sub" id="hdr-sub">&nbsp;</p>
+    </div>
+    <div id="hdr-actions"></div>
+  </div>
+
+  <div id="body"></div>
+</div>
+
+<script>
+/* ======================================================================
+   ?admin=1 is a CURTAIN. It reveals the UI and gates nothing: every
+   action re-checks its token server side.
+   ====================================================================== */
+var GAS = "https://script.google.com/macros/s/AKfycbzGTzkBRTrIIP_tD6sbtOOUmNZkXDdtxPoO4c8fdWt5h3tZFueNSISPv8Q3LWStx73Whw/exec";
+var TOKEN_KEY = 'tfa_admin_v1';
+
+var $ = function (id) { return document.getElementById(id); };
+function esc(s) {
+  return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+var qs = new URLSearchParams(location.search);
+if (!qs.has('admin')) { /* stay behind the curtain */ }
+else { $('curtain').hidden = true; $('app').hidden = false; }
+
+/* Browser -> GAS must be text/plain. application/json triggers a CORS
+   preflight Apps Script cannot answer; GAS parses the raw body anyway. */
+function post(p) {
+  return fetch(GAS, {
+    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(p), redirect: 'follow'
+  }).then(function (r) { return r.json(); });
+}
+function token() { try { return localStorage.getItem(TOKEN_KEY) || ''; } catch (e) { return ''; } }
+function setToken(t) { try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch (e) {} }
+function call(action, extra) {
+  var p = { action: action, admin: token() };
+  for (var k in extra) if (extra.hasOwnProperty(k)) p[k] = extra[k];
+  return post(p).then(function (j) {
+    /* An expired session must land on sign-in, never on a blank screen. */
+    if (j && j.code === 'auth') { setToken(''); showSignIn('Your session expired. Sign in again.'); throw new Error('auth'); }
+    return j;
+  });
+}
+
+var D = { rows: [], counts: {}, filter: 'new', search: '' };
+
+/* ---- sign in --------------------------------------------------------- */
+function showSignIn(msg) {
+  $('hdr-sub').textContent = 'Sign in to continue';
+  $('hdr-actions').innerHTML = '';
+  $('body').innerHTML =
+    '<div class="card signin">' +
+      (msg ? '<p class="err">' + esc(msg) + '</p>' : '') +
+      '<h2>Sign in</h2>' +
+      '<p>We email a sign-in link to the league address. It is good for 15 minutes.</p>' +
+      '<p class="okmsg" id="sent"></p>' +
+      '<button class="btn btn-primary" id="ask">Email me a link</button>' +
+    '</div>';
+  $('ask').addEventListener('click', function () {
+    var b = $('ask'); b.disabled = true; b.textContent = 'Sending…';
+    post({ action: 'tfa_link_request' }).then(function (j) {
+      if (j && j.ok) { $('sent').textContent = 'Sent. Check the league inbox.'; b.textContent = 'Sent'; }
+      else { $('sent').textContent = (j && j.error) || 'Could not send it.'; b.disabled = false; b.textContent = 'Email me a link'; }
+    })['catch'](function () {
+      $('sent').textContent = 'Could not reach the server.';
+      b.disabled = false; b.textContent = 'Email me a link';
+    });
+  });
+}
+
+/* ---- load + render --------------------------------------------------- */
+function load() {
+  return call('tfa_data', {}).then(function (j) {
+    if (!j || !j.ok) { $('body').innerHTML = '<p class="err">' + esc((j && j.error) || 'Could not load.') + '</p>'; return; }
+    D.rows = j.rows || [];
+    D.counts = j.counts || {};
+    render();
+  });
+}
+
+function shown() {
+  var q = D.search.toLowerCase().trim();
+  return D.rows.filter(function (r) {
+    if (D.filter !== 'all' && r.status !== D.filter) return false;
+    if (!q) return true;
+    var hay = [r.team_name, r.division, r.host_name, r.format, r.day, r.referred_by]
+      .concat((r.people || []).map(function (p) { return p.name + ' ' + p.member_number + ' ' + p.email; }))
+      .join(' ').toLowerCase();
+    return hay.indexOf(q) >= 0;
+  });
+}
+
+function when(iso) {
+  try {
+    return new Date(iso).toLocaleString('en-US', {
+      timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric',
+      hour: 'numeric', minute: '2-digit'
+    });
+  } catch (e) { return iso; }
+}
+
+function personCard(p, i) {
+  var h = '<div class="p' + (i === 0 ? ' lead' : '') + '">';
+  h += '<div class="p-role">' + esc(p.role) + '</div>';
+  h += '<div class="p-name">' + esc(p.name) + '</div>';
+  h += '<div class="p-row">#' + esc(p.member_number) + '</div>';
+  if (p.phone) h += '<div class="p-row"><a href="tel:' + esc(p.phone.replace(/[^0-9+]/g, '')) + '">' + esc(p.phone) + '</a></div>';
+  if (p.email) h += '<div class="p-row"><a href="mailto:' + esc(p.email) + '">' + esc(p.email) + '</a></div>';
+  h += '</div>';
+  return h;
+}
+
+function regCard(r) {
+  var people = r.people || [];
+  var h = '<div class="reg is-' + esc(r.status) + (r.is_test ? ' is-test' : '') + '" data-id="' + r.id + '">';
+  h += '<div class="reg-top">';
+  h += '<span class="reg-team">' + esc(r.team_name) + '</span>';
+  h += '<span class="pill pill-' + esc(r.status) + '">' + esc(r.status) + '</span>';
+  h += '<span class="pill pill-fmt">' + esc(r.format) + '</span>';
+  if (r.split) h += '<span class="side-tag">split captains</span>';
+  if (r.is_test) h += '<span class="pill pill-test">test</span>';
+  h += '<span class="reg-when">#' + r.id + ' &middot; ' + esc(when(r.created_at)) + '</span>';
+  h += '</div>';
+
+  h += '<dl class="meta">';
+  h += '<dt>Plays</dt><dd>' + esc(r.day) + ' &middot; ' + esc(r.division) + '</dd>';
+  h += '<dt>Venue</dt><dd>' + esc(r.host_name) + '</dd>';
+  if (r.referred_by) h += '<dt>Referred</dt><dd>' + esc(r.referred_by) + '</dd>';
+  h += '<dt>Session</dt><dd>' + esc(r.session_label) + '</dd>';
+  h += '</dl>';
+
+  var lastSide = null, i;
+  h += '<div class="ppl">';
+  for (i = 0; i < people.length; i++) {
+    if (people[i].side && people[i].side !== lastSide) {
+      lastSide = people[i].side;
+      h += '</div><div class="side-tag">' + esc(lastSide) + ' side</div><div class="ppl">';
+    }
+    h += personCard(people[i], i);
+  }
+  h += '</div>';
+  if (!people.length) h += '<p class="muted">No people stored on this row.</p>';
+
+  h += '<div class="acts">';
+  h += '<button class="btn btn-sm ' + (r.status === 'accepted' ? 'btn-ghost' : 'btn-primary') +
+       '" data-act="accepted">' + (r.status === 'accepted' ? 'Accepted' : 'Accept') + '</button>';
+  h += '<button class="btn btn-sm btn-ghost" data-act="declined">' +
+       (r.status === 'declined' ? 'Declined' : 'Decline') + '</button>';
+  if (r.status !== 'new') h += '<button class="btn btn-sm btn-ghost" data-act="new">Back to new</button>';
+  h += '<button class="btn btn-sm btn-ghost" data-act="test">' + (r.is_test ? 'Not a test' : 'Mark test') + '</button>';
+  h += '<span class="grow"></span>';
+  h += '<button class="btn btn-sm btn-danger" data-act="delete">Delete</button>';
+  h += '<div class="note-row"><input data-note placeholder="Notes, visible only here" value="' +
+       esc(r.notes || '') + '"><button class="btn btn-sm btn-ghost" data-act="note">Save</button></div>';
+  h += '</div>';
+  h += '</div>';
+  return h;
+}
+
+function render() {
+  var c = D.counts;
+  $('hdr-sub').textContent = c.all + ' registration' + (c.all === 1 ? '' : 's') + ' · ' +
+    (c._new || 0) + ' new';
+  $('hdr-actions').innerHTML =
+    '<button class="btn btn-sm btn-ghost" id="refresh">Refresh</button> ' +
+    '<button class="btn btn-sm btn-ghost" id="out">Sign out</button>';
+  $('refresh').addEventListener('click', load);
+  $('out').addEventListener('click', function () { setToken(''); showSignIn(''); });
+
+  var list = shown();
+  var h = '';
+  h += '<div class="card"><div class="toolbar">';
+  h += '<div><label for="q">Search</label><input id="q" placeholder="team, player, venue, APA number" value="' + esc(D.search) + '"></div>';
+  h += '</div></div>';
+
+  h += '<div class="tabs">';
+  [['new', 'New', c._new || 0], ['accepted', 'Accepted', c.accepted || 0],
+   ['declined', 'Declined', c.declined || 0], ['all', 'All', c.all || 0]].forEach(function (t) {
+    h += '<button class="tab' + (D.filter === t[0] ? ' on' : '') + '" data-f="' + t[0] + '">' +
+         esc(t[1]) + ' (' + t[2] + ')</button>';
+  });
+  h += '</div>';
+
+  h += '<p class="err" id="err"></p><p class="okmsg" id="ok"></p>';
+
+  if (!list.length) {
+    h += '<div class="state">Nothing here' + (D.search ? ' matches that search' : '') + '.</div>';
+  } else {
+    for (var i = 0; i < list.length; i++) h += regCard(list[i]);
+  }
+  $('body').innerHTML = h;
+
+  var q = $('q');
+  q.addEventListener('input', function () { D.search = q.value; var p = q.selectionStart; render(); var n = $('q'); n.focus(); try { n.setSelectionRange(p, p); } catch (e) {} });
+  [].forEach.call(document.querySelectorAll('.tab'), function (b) {
+    b.addEventListener('click', function () { D.filter = b.getAttribute('data-f'); render(); });
+  });
+  [].forEach.call(document.querySelectorAll('.reg'), wireCard);
+}
+
+function wireCard(card) {
+  var id = parseInt(card.getAttribute('data-id'), 10);
+  var row = null, i;
+  for (i = 0; i < D.rows.length; i++) if (D.rows[i].id === id) row = D.rows[i];
+  [].forEach.call(card.querySelectorAll('[data-act]'), function (b) {
+    b.addEventListener('click', function () {
+      var act = b.getAttribute('data-act');
+      if (act === 'delete') {
+        /* Name the team. "Are you sure?" is not a safeguard. */
+        if (!confirm('Delete the registration for "' + (row ? row.team_name : '#' + id) +
+                     '"?\n\nThis removes the row and everyone on it, and cannot be undone.\n' +
+                     'The original email in the inbox is unaffected.')) return;
+        b.disabled = true;
+        call('tfa_delete', { id: id }).then(function (j) {
+          if (j && j.ok) load().then(function () { $('ok').textContent = 'Deleted ' + j.deleted + '.'; });
+          else { $('err').textContent = (j && j.error) || 'Could not delete that.'; b.disabled = false; }
+        })['catch'](function () {});
+        return;
+      }
+      var patch = {};
+      if (act === 'note') patch.notes = card.querySelector('[data-note]').value;
+      else if (act === 'test') patch.is_test = !(row && row.is_test);
+      else patch.status = act;
+      b.disabled = true;
+      call('tfa_set', Object.assign({ id: id }, patch)).then(function (j) {
+        if (j && j.ok) load();
+        else { $('err').textContent = (j && j.error) || 'Could not save that.'; b.disabled = false; }
+      })['catch'](function () {});
+    });
+  });
+}
+
+/* ---- boot ------------------------------------------------------------ */
+(function boot() {
+  if (!qs.has('admin')) return;
+  var linkKey = qs.get('k');
+  if (linkKey) {
+    /* Get the link token out of the address bar before anything else, so it
+       does not sit in history or get shared in a screenshot. */
+    history.replaceState({}, '', location.pathname + '?admin=1');
+    $('body').innerHTML = '<div class="state">Signing you in…</div>';
+    post({ action: 'tfa_verify', k: linkKey }).then(function (j) {
+      if (j && j.ok && j.admin) { setToken(j.admin); load(); }
+      else showSignIn((j && j.error) || 'That sign-in link did not work.');
+    })['catch'](function () { showSignIn('Could not reach the server.'); });
+    return;
+  }
+  if (!token()) { showSignIn(''); return; }
+  $('body').innerHTML = '<div class="state">Loading…</div>';
+  load()['catch'](function () {});
+})();
+</script>
+</body>
+</html>

@@ -235,11 +235,6 @@ p.sec-sub{margin:0 0 12px;font-size:.85rem;color:var(--muted)}
   font-weight:700;white-space:nowrap}
 .plr .field:last-child{margin-bottom:0}
 
-.notice{margin:0 0 var(--fgap);padding:11px 13px;border-radius:12px;background:#fdf3e0;
-  border:1px solid #e8cf9a;border-left:5px solid #c98a00;color:#7a5500;
-  font-size:.85rem;font-weight:600;line-height:1.45}
-.notice b{font-weight:800;color:#5e4200}
-
 .info{margin:0 0 var(--fgap);padding:11px 13px;border-radius:12px;background:var(--ok-bg);
   border:1px solid var(--ok-border);color:var(--ok-text);font-size:.85rem;line-height:1.45}
 .info b{font-weight:800}
@@ -360,7 +355,6 @@ p.sec-sub{margin:0 0 12px;font-size:.85rem;color:var(--muted)}
       </section>
 
       <section class="spm-card">
-        <div class="notice" id="deposit"></div>
         <div class="info">
           <b>Get ahead of the game.</b> Have everyone pay their member dues at
           <a href="https://www.poolplayers.com" target="_blank" rel="noopener">poolplayers.com</a>
@@ -426,18 +420,18 @@ var DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Sat', 'Sun'];
      whole:true   a 2-to-4 player team. That IS the roster, so ask for all of it.
      split:true   Double Jeopardy may run different captains on its 8-Ball and
                   9-Ball sides. The switch appears only for these.
-     deposit      null means we have not been told the figure; the notice then
-                  says a deposit is suggested without naming a wrong number.
+   There is deliberately NO deposit field or deposit notice. Operator decision
+   2026-11-13: the form does not mention money at all.
    Keep short labels: these are pills on a 320px screen. */
 var FORMATS = [
-  { key: '8-Ball Open',             label: '8-Ball',       min: 1, max: 2, whole: false, deposit: 45 },
-  { key: '9-Ball Open',             label: '9-Ball',       min: 1, max: 2, whole: false, deposit: 45 },
-  { key: 'Double Jeopardy',         label: 'Double Jeopardy', min: 1, max: 2, whole: false, deposit: 90, split: true },
-  { key: 'Ladies',                  label: 'Ladies',       min: 1, max: 2, whole: false, deposit: 45 },
-  { key: '8-Ball Doubles',          label: '8-Ball Doubles', min: 2, max: 3, whole: true, deposit: null },
-  { key: '9-Ball Doubles',          label: '9-Ball Doubles', min: 2, max: 3, whole: true, deposit: null },
-  { key: 'Double Jeopardy Doubles', label: 'DJ Doubles',   min: 2, max: 3, whole: true, deposit: null },
-  { key: 'Masters',                 label: 'Masters',      min: 3, max: 4, whole: true, deposit: null }
+  { key: '8-Ball Open',             label: '8-Ball',       min: 1, max: 2, whole: false },
+  { key: '9-Ball Open',             label: '9-Ball',       min: 1, max: 2, whole: false },
+  { key: 'Double Jeopardy',         label: 'Double Jeopardy', min: 1, max: 2, whole: false, split: true },
+  { key: 'Ladies',                  label: 'Ladies',       min: 1, max: 2, whole: false },
+  { key: '8-Ball Doubles',          label: '8-Ball Doubles', min: 2, max: 3, whole: true },
+  { key: '9-Ball Doubles',          label: '9-Ball Doubles', min: 2, max: 3, whole: true },
+  { key: 'Double Jeopardy Doubles', label: 'DJ Doubles',   min: 2, max: 3, whole: true },
+  { key: 'Masters',                 label: 'Masters',      min: 3, max: 4, whole: true }
 ];
 
 /* v3: v1 carried street addresses, v2 had a fixed two-person shape. Neither
@@ -618,13 +612,6 @@ function renderPeople(keep) {
       'any time through the first four weeks of the session.';
     $('people-note').hidden = false;
   }
-
-  /* Deposit follows the format, and never invents a figure we were not given. */
-  $('deposit').innerHTML = f.deposit
-    ? '<b>Team deposit:</b> <b>$' + f.deposit + '</b> is strongly suggested. It pre-pays your ' +
-      'last week of team fees so nobody is scrambling on the final night.'
-    : '<b>Team deposit:</b> a deposit is strongly suggested. It pre-pays your last week of team ' +
-      'fees. Ask us for the ' + esc(f.label) + ' amount and we will tell you.';
 }
 
 /* ---- field-level errors ---------------------------------------------

@@ -413,8 +413,8 @@ p.sec-sub{margin:0 0 12px;font-size:.85rem;color:var(--muted)}
    A blank date simply does not appear, which beats a stale one.
    ====================================================================== */
 var SESSION_NAME   = 'Spring 2027';
-var DEADLINE       = '';   /* e.g. 'December 15, 2026' */
-var SESSION_STARTS = '';   /* e.g. 'January 5, 2027'   */
+var DEADLINE       = '';                  /* operator 2026-11-13: no deadline this session */
+var SESSION_STARTS = 'Monday December 7'; /* 2026-12-07, 16 weeks after Fall 2026 opened */
 
 var GAS = "https://script.google.com/macros/s/AKfycbzGTzkBRTrIIP_tD6sbtOOUmNZkXDdtxPoO4c8fdWt5h3tZFueNSISPv8Q3LWStx73Whw/exec";
 
@@ -462,9 +462,15 @@ document.title = 'Team Registration ' + SESSION_NAME + ' · South Portland Metro
      about when registration closes, which is the biggest thing on the paper
      form this replaces. */
   var h = '<b>What happens next.</b> ';
-  if (DEADLINE) h += 'Registration closes <b>' + esc(DEADLINE) + '</b>. ';
   if (SESSION_STARTS) h += 'Play begins the week of <b>' + esc(SESSION_STARTS) + '</b>. ';
-  h += 'We confirm your division and start date by email, usually within a few days.';
+  if (DEADLINE) {
+    h += 'Registration closes <b>' + esc(DEADLINE) + '</b>. ';
+  } else if (SESSION_STARTS) {
+    /* No deadline is itself worth saying. Silence reads as "you have missed
+       it" to anyone looking at a start date three weeks away. */
+    h += 'There is no registration deadline, so sign up any time before then. ';
+  }
+  h += 'We confirm your division and night of play by email, usually within a few days.';
   $('next-up').innerHTML = h;
 })();
 
